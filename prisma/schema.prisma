@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Setores do barracão
+model Setor {
+  id        String   @id @default(uuid())
+  nome      String   @unique // "SEGURO", "VENDA", "SOBRA"
+  descricao String?
+  cor       String   @default("#4A90D9") // cor para visualização 3D
+  posicaoX  Int      @default(0) // posição no layout 3D
+  posicaoY  Int      @default(0)
+  largura   Int      @default(10) // dimensões do setor no layout 3D
+  altura    Int      @default(10)
+
+  localizacoes Localizacao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Paletes/Prateleiras/Posições dentro de cada setor
+model Localizacao {
+  id          String  @id @default(uuid())
+  codigo      String  @unique // ex: "SEG-P01", "VEN-P03", "SOB-P05"
+  descricao   String?
+  tipo        String  @default("PALETE") // PALETE, PRATELEIRA, AREA
+  setorId     String
+  setor       Setor   @relation(fields: [setorId], references: [id])
+  posicaoX    Float   @default(0) // posição dentro do setor no 3D
+  posicaoY    Float   @default(0)
+  posicaoZ    Float   @default(0)
+  capacidade  Int     @default(10) // capacidade máxima de itens
+
+  itens Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Itens no estoque
+model Item {
+  id              String    @id @default(uuid())
+  codigo          String    @unique // código único gerado automaticamente
+  nome            String
+  descricao       String?
+  quantidade      Int       @default(1)
+  motivoAvaria    String?
+  status          String    @default("ESTOQUE") // ESTOQUE, SAIU
+  localizacaoId   String?
+  localizacao     Localizacao? @relation(fields: [localizacaoId], references: [id])
+
+  valorNf         Float?
+  valorInternet   Float?
+  sugestao        Float?
+
+  movimentacoes Movimentacao[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Registro de movimentações (entrada/saída)
+model Movimentacao {
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id])
+  tipo      String   // ENTRADA, SAIDA
+  motivo    String?  // DESCARTE, REAPROVEITAMENTO, DEVOLUCAO_FORNECEDOR, VENDA, TRANSFERENCIA
+  destino   String?  // para onde foi
+  quantidade Int     @default(1)
+  usuario   String?
+  observacao String?
+
+  createdAt DateTime @default(now())
+}

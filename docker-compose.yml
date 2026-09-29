@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: avarias_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: avarias_user
+      POSTGRES_PASSWORD: avarias_pass
+      POSTGRES_DB: avarias_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - avarias_data:/var/lib/postgresql/data
+
+volumes:
+  avarias_data:
