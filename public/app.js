@@ -347,9 +347,24 @@ async function buscarNoMapa() {
 
     window.highlightedLoc = locCode;
     showToast(`Item encontrado na localização: ${locCode}`, 'success');
+    if(window.playSuccessBeep) window.playSuccessBeep();
+
+    // Forçar visão 3D para o zoom funcionar e aparecer os blocos!
+    const selectMode = document.getElementById('viewModeSelect');
+    if(selectMode && selectMode.value !== '3d') {
+      selectMode.value = '3d';
+      window.currentViewMode = '3d';
+      drawWarehouse(); // desenha a primeira vez em 3D pra gerar o drawablePaletes
+    }
 
     // Encontrar as coordenadas (x, z) desse palete no mapa para dar zoom
-    const palete = drawablePaletes.find(p => p.id === locCode || p.loc.codigo === locCode);
+    // Note que se for FloorBlock o id pode ser TC-CHAO-C01-L1 enquanto locCode é TC-CHAO
+    const palete = drawablePaletes.find(p => 
+      p.id === locCode || 
+      (p.loc && p.loc.codigo === locCode) ||
+      (p.setor && p.setor.nome === locCode)
+    );
+
     if(palete) {
       const targetScale = 2.5;
       const tX = palete.x;
@@ -1292,12 +1307,29 @@ async function submitCadastro(e) {
     const item = await apiFetch('/items', { method: 'POST', body: data });
 
     showToast(`Item "${item.nome}" cadastrado! Código: ${item.codigo}`, 'success');
+    if(window.playSuccessBeep) window.playSuccessBeep();
 
-    // Mostrar preview de etiqueta
+    // Mostrar preview de etiqueta (no fundo)
     await showEtiquetaPreview(item);
 
     // Limpar form
     document.getElementById('formCadastrar').reset();
+
+    // Mostra o modal e pergunta se quer ir para o mapa
+    customConfirm(
+      'Item Registrado!', 
+      `O item ${item.nome} foi registrado com sucesso. Deseja ver a descrição dele no Mapa 3D ou continuar registrando?`, 
+      '✅',
+      () => {
+        // Vai pro mapa e busca o item
+        navigateTo('mapa');
+        document.getElementById('mapSearchInput').value = item.codigo;
+        buscarNoMapa();
+      }
+    );
+    // Troca o texto do botão de cancelar do confirm para "Continuar Registrando"
+    document.getElementById('btnConfirmCancel').textContent = 'Continuar Registrando';
+    document.getElementById('btnConfirmOk').textContent = 'Ver no Mapa';
 
   } catch (e) {
     showToast('Erro ao cadastrar: ' + e.message, 'error');
@@ -1783,6 +1815,23 @@ window.customConfirm = function(title, message, icon, onConfirm) {
   };
 };
 
+window.playSuccessBeep = function() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1046.50, ctx.currentTime); // Nota C6
+    gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch(e) {
+    console.log("Audio API not supported", e);
+  }
+};
+
 // =====================
 // QR SCANNER (Câmera & USB)
 // =====================
@@ -1841,6 +1890,7 @@ async function processScan(codigoLido) {
       try {
         const lote = await apiFetch(`/lotes/codigo/${encodeURIComponent(codigoLido)}`);
         if (lote && lote.id) {
+          if(window.playSuccessBeep) window.playSuccessBeep();
           // Usa o modal bonitinho em vez de window.confirm()
           document.getElementById('modalLoteNome').textContent = lote.nome;
           document.getElementById('modalLoteQtd').textContent = lote.itens.length;
@@ -1877,6 +1927,7 @@ async function processScan(codigoLido) {
       const idens = res.filter(i => i.codigo === codigoLido && i.status === 'ESTOQUE');
       
       if (idens.length > 0) {
+        if(window.playSuccessBeep) window.playSuccessBeep();
         const itemPrinc = idens[0];
         const qtdTotal = idens.reduce((sum, i) => sum + i.quantidade, 0);
         abrirModalSaida(itemPrinc.id, itemPrinc.nome, qtdTotal);
