@@ -364,39 +364,46 @@ async function buscarNoMapa() {
 
 // Função para dar zoom em um setor inteiro (clicando na legenda)
 function zoomToSector(setorNomeBusca) {
-  // Procura o setor nos paletes desenhados
-  const sectorPaletes = drawablePaletes.filter(p => p.setor?.nome?.toLowerCase().includes(setorNomeBusca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+  const buscaL = setorNomeBusca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  
+  const sectorPaletes = drawablePaletes.filter(p => {
+    if (!p.setor?.nome) return false;
+    const sName = p.setor.nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    return sName.includes(buscaL) || buscaL.includes(sName);
+  });
   
   if (sectorPaletes.length === 0) {
     showToast('Nenhum palete desenhado para este setor.', 'warning');
     return;
   }
 
-  // Calcula o centro do setor baseando-se em todos os paletes dele
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  const allSectorItens = [];
+  
   for (const p of sectorPaletes) {
     if (p.x < minX) minX = p.x;
     if (p.x > maxX) maxX = p.x;
     if (p.z < minZ) minZ = p.z;
     if (p.z > maxZ) maxZ = p.z;
+    
+    if (p.loc?.itens) {
+      allSectorItens.push(...p.loc.itens);
+    }
   }
   
   const centerX = minX + (maxX - minX) / 2;
   const centerZ = minZ + (maxZ - minZ) / 2;
 
-  // Dá o zoom
-  animateCamera(45, 160, 2.0, centerX, centerZ); // Scale 2.0 (um pouco mais longe que palete individual)
+  animateCamera(45, 160, 2.0, centerX, centerZ); 
   
-  // Abre o painel lateral com os KPIs do setor usando o primeiro palete como referência
   const refPalete = sectorPaletes[0];
   
-  // Cria um palete fake só para mostrar os KPIs do setor sem focar nos itens de um palete específico
   const dummyPalete = {
     ...refPalete,
-    loc: { codigo: 'Visão Geral do Setor', itens: [] } // Sem itens no detalhe
+    loc: { codigo: 'Visão Geral do Setor', itens: allSectorItens } 
   };
   
-  window.highlightedLoc = null; // Remove qualquer highlight de palete
+  window.highlightedLoc = null;
   
   setTimeout(() => {
     showPaletePanel(dummyPalete);
