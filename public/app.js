@@ -385,7 +385,7 @@ function zoomToSector(setorNomeBusca) {
   }
 
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-  const allSectorItens = [];
+  const allSectorItensMap = new Map();
   
   for (const p of sectorPaletes) {
     if (p.x < minX) minX = p.x;
@@ -394,9 +394,11 @@ function zoomToSector(setorNomeBusca) {
     if (p.z > maxZ) maxZ = p.z;
     
     if (p.loc?.itens) {
-      allSectorItens.push(...p.loc.itens);
+      p.loc.itens.forEach(item => allSectorItensMap.set(item.id, item));
     }
   }
+  
+  const allSectorItens = Array.from(allSectorItensMap.values());
   
   const centerX = minX + (maxX - minX) / 2;
   const centerZ = minZ + (maxZ - minZ) / 2;
@@ -1062,21 +1064,28 @@ function showPaletePanel(palete) {
 
   // Sector KPIs
   const sectorPaletes = drawablePaletes.filter(p => p.setor?.nome === palete.setor?.nome);
-  const totalSectorItens = sectorPaletes.reduce((sum, p) => sum + (p.totalItens || 0), 0);
-  let sectorTotalNf = 0;
-  let sectorTotalInternet = 0;
-  let sectorTotalSugestao = 0;
-
+  const uniqueItemsMap = new Map();
   for (const p of sectorPaletes) {
     if (p.loc?.itens) {
       for (const i of p.loc.itens) {
         if (i.status === 'ESTOQUE') {
-           sectorTotalNf += i.valorNf || 0;
-           sectorTotalInternet += i.valorInternet || 0;
-           sectorTotalSugestao += i.sugestao || 0;
+           uniqueItemsMap.set(i.id, i);
         }
       }
     }
+  }
+
+  const uniqueItems = Array.from(uniqueItemsMap.values());
+  const totalSectorItens = uniqueItems.length;
+
+  let sectorTotalNf = 0;
+  let sectorTotalInternet = 0;
+  let sectorTotalSugestao = 0;
+
+  for (const i of uniqueItems) {
+    sectorTotalNf += i.valorNf || 0;
+    sectorTotalInternet += i.valorInternet || 0;
+    sectorTotalSugestao += i.sugestao || 0;
   }
 
   const fNf = sectorTotalNf.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});

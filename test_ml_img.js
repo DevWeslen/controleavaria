@@ -19,12 +19,15 @@ function testSelectors() {
     const img4 = $(el).find('img[fetchpriority="high"]').attr('src');
     const img5 = $(el).find('.poly-card__portada img').attr('src') || $(el).find('.poly-card__portada img').attr('data-src');
     
+    const link1 = $(el).find('a').first().attr('href');
+    const link2 = $(el).find('.ui-search-link').attr('href');
+    const link3 = $(el).find('a.poly-component__title').attr('href');
+    
     console.log(`\nItem ${i+1}: ${title}`);
-    console.log(`img1 src:`, img1, `data-src:`, img1d);
-    console.log(`img2 src:`, img2, `data-src:`, img2d);
-    console.log(`img3 src:`, img3, `data-src:`, img3d);
-    console.log(`img4 src:`, img4);
     console.log(`img5 src/data-src:`, img5);
+    console.log(`link1:`, link1);
+    console.log(`link2:`, link2);
+    console.log(`link3:`, link3);
   });
 }
 testSelectors();
