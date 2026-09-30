@@ -85,12 +85,7 @@ router.post('/gerar', async (req, res) => {
       const textWidth = larguraPt - textLeft - padding;
 
       // 1. QR Code
-      const qrData = JSON.stringify({
-        id: item.id,
-        codigo: item.codigo,
-        nome: item.nome,
-        local: item.localizacao?.codigo || '',
-      });
+      const qrData = item.codigo;
       const qrBuffer = await QRCode.toBuffer(qrData, {
         width: Math.round(qrSize),
         margin: 1,
@@ -206,12 +201,7 @@ router.get('/preview/:id', async (req, res) => {
 
     if (!item) return res.status(404).json({ error: 'Item não encontrado' });
 
-    const qrData = JSON.stringify({
-      id: item.id,
-      codigo: item.codigo,
-      nome: item.nome,
-      local: item.localizacao?.codigo || '',
-    });
+    const qrData = item.codigo;
 
     const qrDataUrl = await QRCode.toDataURL(qrData, { width: 200, margin: 1 });
 
