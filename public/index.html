@@ -61,6 +61,16 @@
         </svg>
         <span>Movimentações</span>
       </button>
+      <button class="nav-item" data-page="lotes" id="nav-lotes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+          <line x1="12" y1="12" x2="12" y2="17"/>
+          <line x1="9" y1="14.5" x2="15" y2="14.5"/>
+        </svg>
+        <span>Lotes</span>
+        <span class="badge-new" style="background:#F59E0B">Novo</span>
+      </button>
     </nav>
     
     <div style="padding: 20px;">
@@ -427,6 +437,51 @@
         </div>
       </section>
 
+      <!-- LOTES PAGE -->
+      <section class="page" id="page-lotes">
+        <div class="page-header">
+          <h1>Lotes de Leilão</h1>
+          <p class="page-subtitle">Gerenciamento de lotes fechados e transferências</p>
+        </div>
+        
+        <div class="dashboard-grid" style="grid-template-columns: 1fr; margin-bottom:20px;">
+          <div class="card">
+            <div class="card-header">
+              <h3>Criar Novo Lote</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Nome do Lote *</label>
+                  <input type="text" id="loteNome" class="form-input" placeholder="Ex: Leilão Out/2026 - Móveis e Cadeiras">
+                </div>
+                <div class="form-group">
+                  <label>Responsável</label>
+                  <input type="text" id="loteUsuario" class="form-input" placeholder="Seu nome">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Observação</label>
+                <input type="text" id="loteObservacao" class="form-input" placeholder="...">
+              </div>
+              <button class="btn-primary" onclick="criarLote()">Criar Lote</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Lotes Existentes</h3>
+            <button class="btn-secondary" onclick="loadLotes()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg></button>
+          </div>
+          <div class="card-body">
+            <div id="lotesContainer" style="display:grid; gap:15px;">
+               <!-- Lotes renderizados aqui -->
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div><!-- /page-container -->
   </main>
 
@@ -509,7 +564,43 @@
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeModal('modalDetalhes')">Fechar</button>
         <button class="btn-primary-small" onclick="imprimirEtiquetaModal()">🖨️ Imprimir Etiqueta</button>
+        <button class="btn-primary-small" id="btnTransferirModal" onclick="abrirTransferenciaDoModal()">🚚 Transferir</button>
         <button class="btn-danger-small" id="btnSaidaModal" onclick="abrirSaidaDoModal()">📤 Registrar Saída</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Transferência de Item -->
+  <div class="modal-overlay" id="modalTransferencia" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Transferir Item</h3>
+        <button class="modal-close" onclick="closeModal('modalTransferencia')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:#222; padding:12px; border-radius:6px; margin-bottom:15px; border:1px solid #333">
+          <p id="transItemNome" style="margin:0; font-weight:600; color:#fff"></p>
+          <p id="transItemAtual" style="margin:4px 0 0 0; font-size:12px; color:#888"></p>
+        </div>
+        <input type="hidden" id="transItemId">
+        <div class="form-group">
+          <label>Destino (Localização) *</label>
+          <select id="transLocalizacaoId" class="form-input select-input">
+            <option value="">Carregando...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Responsável</label>
+          <input type="text" id="transUsuario" class="form-input" placeholder="Seu nome">
+        </div>
+        <div class="form-group">
+          <label>Observação</label>
+          <textarea id="transObservacao" class="form-input form-textarea" rows="2" placeholder="Motivo da transferência..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('modalTransferencia')">Cancelar</button>
+        <button class="btn-primary" onclick="confirmarTransferencia()">Transferir</button>
       </div>
     </div>
   </div>
@@ -535,6 +626,7 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
+  <script src="lotes_sse.js?v=1"></script>
 </body>
 </html>

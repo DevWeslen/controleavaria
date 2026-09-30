@@ -46,38 +46,57 @@ model Localizacao {
   updatedAt DateTime @updatedAt
 }
 
+// Lotes para agrupamento de itens (ex: lotes de leilão)
+model Lote {
+  id         String    @id @default(uuid())
+  codigo     String    @unique // ex: "LOT-2026-0001"
+  nome       String
+  status     String    @default("ABERTO") // ABERTO, FECHADO
+  usuario    String?
+  observacao String?
+  fechadoAt  DateTime?
+
+  itens Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Itens no estoque
 model Item {
-  id              String    @id @default(uuid())
-  codigo          String    @unique // código único gerado automaticamente
+  id              String      @id @default(uuid())
+  codigo          String      @unique // código único gerado automaticamente
   nome            String
   descricao       String?
-  quantidade      Int       @default(1)
+  quantidade      Int         @default(1)
   motivoAvaria    String?
-  status          String    @default("ESTOQUE") // ESTOQUE, SAIU
+  status          String      @default("ESTOQUE") // ESTOQUE, SAIU
   localizacaoId   String?
   localizacao     Localizacao? @relation(fields: [localizacaoId], references: [id])
+
+  loteId          String?
+  lote            Lote?       @relation(fields: [loteId], references: [id])
 
   valorNf         Float?
   valorInternet   Float?
   sugestao        Float?
 
   movimentacoes Movimentacao[]
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 // Registro de movimentações (entrada/saída)
 model Movimentacao {
-  id        String   @id @default(uuid())
-  itemId    String
-  item      Item     @relation(fields: [itemId], references: [id])
-  tipo      String   // ENTRADA, SAIDA
-  motivo    String?  // DESCARTE, REAPROVEITAMENTO, DEVOLUCAO_FORNECEDOR, VENDA, TRANSFERENCIA
-  destino   String?  // para onde foi
-  quantidade Int     @default(1)
-  usuario   String?
+  id         String   @id @default(uuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+  tipo       String   // ENTRADA, SAIDA, TRANSFERENCIA
+  motivo     String?  // DESCARTE, VENDA, RETIRADA, ENCAMINHADO_UNIDADE, TRANSFERENCIA, LOTE_SAIDA
+  destino    String?  // para onde foi
+  quantidade Int      @default(1)
+  usuario    String?
   observacao String?
 
   createdAt DateTime @default(now())

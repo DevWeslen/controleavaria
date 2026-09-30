@@ -39,6 +39,7 @@ function navigateTo(page) {
   else if (page === 'mapa') loadMapa();
   else if (page === 'estoque') loadEstoque();
   else if (page === 'movimentacoes') loadMovimentacoes();
+  else if (page === 'lotes') loadLotes();
 
   // Fechar sidebar no mobile ou esconder no modo mapa
   if (window.innerWidth <= 768 || page === 'mapa') {
@@ -1741,9 +1742,32 @@ function fecharScanner() {
 
 async function processScan(codigoLido) {
   fecharScanner();
-  showToast('Buscando item: ' + codigoLido, 'info');
+  showToast('Buscando: ' + codigoLido, 'info');
   
   try {
+    // 1. Tentar verificar se é um Lote
+    if (codigoLido.toUpperCase().startsWith('LOT-')) {
+      try {
+        const lote = await apiFetch(`/lotes/codigo/${encodeURIComponent(codigoLido)}`);
+        if (lote && lote.id) {
+          if (confirm(`Lote encontrado: ${lote.nome}\nPossui ${lote.itens.length} itens em estoque.\nDeseja dar saída em TODOS os itens deste lote agora?`)) {
+             await apiFetch(`/lotes/${lote.id}/saida`, {
+               method: 'POST',
+               body: JSON.stringify({ motivo: 'LOTE_SAIDA', destino: 'Leilão/Transferência' })
+             });
+             showToast('Saída em massa registrada com sucesso!', 'success');
+             if(currentPage === 'dashboard') loadDashboard();
+             if(currentPage === 'estoque') loadEstoque();
+             if(currentPage === 'mapa') loadMapa();
+          }
+          return;
+        }
+      } catch(err) {
+        console.warn("Código LOT- não encontrado nos lotes. ", err);
+      }
+    }
+
+    // 2. Senão, busca como Item normal
     const res = await apiFetch(`/items?search=${encodeURIComponent(codigoLido)}`);
     if (res && res.length > 0) {
       // Pega o item que deu match exato no código se possivel, ou o primeiro
@@ -1757,7 +1781,7 @@ async function processScan(codigoLido) {
       showToast('Item não encontrado pelo código: ' + codigoLido, 'error');
     }
   } catch (e) {
-    showToast('Erro ao buscar item pelo código: ' + e.message, 'error');
+    showToast('Erro ao buscar código: ' + e.message, 'error');
   }
 }
 

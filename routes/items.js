@@ -34,6 +34,7 @@ router.get('/', async (req, res) => {
         localizacao: {
           include: { setor: true }
         },
+        lote: { select: { id: true, codigo: true, nome: true, status: true } },
         movimentacoes: {
           orderBy: { createdAt: 'desc' },
           take: 1
@@ -63,6 +64,49 @@ router.get('/scrape/search', async (req, res) => {
   }
 });
 
+// GET /api/items/stats/dashboard - Estatísticas para dashboard
+router.get('/stats/dashboard', async (req, res) => {
+  try {
+    const [total, emEstoque, saidos, porSetor] = await Promise.all([
+      prisma.item.count(),
+      prisma.item.count({ where: { status: 'ESTOQUE' } }),
+      prisma.item.count({ where: { status: 'SAIU' } }),
+      prisma.setor.findMany({
+        include: {
+          localizacoes: {
+            include: {
+              _count: { select: { itens: true } }
+            }
+          }
+        }
+      })
+    ]);
+
+    const ultimasMovimentacoes = await prisma.movimentacao.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: { item: true }
+    });
+
+    const saidasAgrupadas = await prisma.movimentacao.groupBy({
+      by: ['motivo'],
+      where: { tipo: 'SAIDA' },
+      _sum: { quantidade: true }
+    });
+
+    res.json({
+      total,
+      emEstoque,
+      saidos,
+      porSetor,
+      ultimasMovimentacoes,
+      saidasAgrupadas
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao buscar estatísticas', details: error.message });
+  }
+});
+
 // GET /api/items/:id - Buscar item por ID
 router.get('/:id', async (req, res) => {
   try {
@@ -70,6 +114,7 @@ router.get('/:id', async (req, res) => {
       where: { id: req.params.id },
       include: {
         localizacao: { include: { setor: true } },
+        lote: { select: { id: true, codigo: true, nome: true, status: true } },
         movimentacoes: { orderBy: { createdAt: 'desc' } }
       }
     });
@@ -122,6 +167,21 @@ router.post('/', async (req, res) => {
       }
     });
 
+    // Emitir evento SSE para todos os clientes conectados
+    const emitSSE = req.app.locals.emitSSE;
+    if (emitSSE) {
+      emitSSE('novo_item', {
+        id: item.id,
+        codigo: item.codigo,
+        nome: item.nome,
+        quantidade: item.quantidade,
+        setor: item.localizacao?.setor?.nome || null,
+        setorCor: item.localizacao?.setor?.cor || null,
+        localizacao: item.localizacao?.codigo || null,
+        createdAt: item.createdAt
+      });
+    }
+
     res.status(201).json(item);
   } catch (error) {
     console.error(error);
@@ -158,6 +218,79 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// POST /api/items/:id/transferir — Transferir item para outro setor/localizacao
+router.post('/:id/transferir', async (req, res) => {
+  try {
+    const { localizacaoId, usuario, observacao } = req.body;
+    if (!localizacaoId) return res.status(400).json({ error: 'localizacaoId é obrigatório' });
+
+    const localizacao = await prisma.localizacao.findUnique({
+      where: { id: localizacaoId },
+      include: { setor: true }
+    });
+    if (!localizacao) return res.status(404).json({ error: 'Localização não encontrada' });
+
+    // Bloquear transferência para setor "Lotes Fechados" diretamente
+    if (localizacao.setor?.nome?.toUpperCase().includes('LOTES FECHADOS')) {
+      return res.status(400).json({ error: 'Use a tela de Lotes para enviar itens para Lotes Fechados.' });
+    }
+
+    const item = await prisma.item.update({
+      where: { id: req.params.id },
+      data: { localizacaoId },
+      include: { localizacao: { include: { setor: true } } }
+    });
+
+    await prisma.movimentacao.create({
+      data: {
+        id: uuidv4(),
+        itemId: item.id,
+        tipo: 'TRANSFERENCIA',
+        motivo: 'TRANSFERENCIA',
+        destino: localizacao.setor?.nome || localizacao.codigo,
+        quantidade: item.quantidade,
+        usuario: usuario || 'Sistema',
+        observacao: observacao || `Transferido para ${localizacao.codigo}`
+      }
+    });
+
+    res.json(item);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao transferir item', details: error.message });
+  }
+});
+
+// POST /api/items/:id/saida — Registrar saída de item
+router.post('/:id/saida', async (req, res) => {
+  try {
+    const { motivo, destino, quantidade, usuario, observacao } = req.body;
+    if (!motivo) return res.status(400).json({ error: 'Motivo é obrigatório' });
+
+    const item = await prisma.item.update({
+      where: { id: req.params.id },
+      data: { status: 'SAIU' },
+      include: { localizacao: { include: { setor: true } } }
+    });
+
+    await prisma.movimentacao.create({
+      data: {
+        id: uuidv4(),
+        itemId: item.id,
+        tipo: 'SAIDA',
+        motivo,
+        destino,
+        quantidade: quantidade || item.quantidade,
+        usuario: usuario || 'Sistema',
+        observacao
+      }
+    });
+
+    res.json(item);
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao registrar saída', details: error.message });
+  }
+});
+
 // DELETE /api/items/:id - Deletar item
 router.delete('/:id', async (req, res) => {
   try {
@@ -166,49 +299,6 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Item deletado com sucesso' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao deletar item', details: error.message });
-  }
-});
-
-// GET /api/items/stats/dashboard - Estatísticas para dashboard
-router.get('/stats/dashboard', async (req, res) => {
-  try {
-    const [total, emEstoque, saidos, porSetor] = await Promise.all([
-      prisma.item.count(),
-      prisma.item.count({ where: { status: 'ESTOQUE' } }),
-      prisma.item.count({ where: { status: 'SAIU' } }),
-      prisma.setor.findMany({
-        include: {
-          localizacoes: {
-            include: {
-              _count: { select: { itens: true } }
-            }
-          }
-        }
-      })
-    ]);
-
-    const ultimasMovimentacoes = await prisma.movimentacao.findMany({
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      include: { item: true }
-    });
-
-    const saidasAgrupadas = await prisma.movimentacao.groupBy({
-      by: ['motivo'],
-      where: { tipo: 'SAIDA' },
-      _sum: { quantidade: true }
-    });
-
-    res.json({
-      total,
-      emEstoque,
-      saidos,
-      porSetor,
-      ultimasMovimentacoes,
-      saidasAgrupadas
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar estatísticas', details: error.message });
   }
 });
 
