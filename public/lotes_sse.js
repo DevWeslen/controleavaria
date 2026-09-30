@@ -241,16 +241,27 @@ async function promptAdicionarItemLote(loteId) {
   }
 }
 
-async function processScanParaLote(loteId, codigo) {
-  if(!codigo) return;
-  showToast('Adicionando ' + codigo + ' ao lote...', 'info');
+async function processScanParaLote(loteId, codigoLido) {
+  if(!codigoLido) return;
+  showToast('Buscando ' + codigoLido + '...', 'info');
 
   try {
+    const res = await apiFetch(`/items?search=${encodeURIComponent(codigoLido.trim())}`);
+    if (!res || res.length === 0) {
+       showToast('Item não encontrado: ' + codigoLido, 'error');
+       return;
+    }
+    const item = res.find(i => i.codigo.toUpperCase() === codigoLido.trim().toUpperCase()) || res[0];
+
     await apiFetch(`/lotes/${loteId}/itens`, {
       method: 'POST',
-      body: { itemCodigo: codigo.trim() }
+      body: { itemCodigo: item.codigo }
     });
     showToast('Item adicionado ao lote com sucesso!', 'success');
+    
+    // Toca som de sucesso para feedback rapido se o scanner continua aberto
+    if (typeof playBeep === 'function') playBeep();
+    
     loadLotes();
   } catch(e) {
     showToast('Erro ao adicionar item: ' + e.message, 'error');

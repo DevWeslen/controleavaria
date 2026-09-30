@@ -1744,13 +1744,14 @@ function fecharScanner() {
 }
 
 async function processScan(codigoLido) {
-  fecharScanner();
-  
   if (scannerContext === 'lote' && scannerContextId) {
     if (typeof processScanParaLote === 'function') {
       return processScanParaLote(scannerContextId, codigoLido);
     }
   }
+
+  // Se não for lote, ou for uma saída normal, fecha o scanner
+  fecharScanner();
 
   showToast('Buscando: ' + codigoLido, 'info');
   
@@ -1795,7 +1796,16 @@ async function processScan(codigoLido) {
   }
 }
 
+let lastScannedCode = null;
+let scanTimeout = null;
+
 function onScanSuccess(decodedText) {
+  if (lastScannedCode === decodedText) return; // evita scan duplicado rápido
+  
+  lastScannedCode = decodedText;
+  clearTimeout(scanTimeout);
+  scanTimeout = setTimeout(() => { lastScannedCode = null; }, 2000); // libera depois de 2s
+
   processScan(decodedText);
 }
 function onScanFailure(error) { /* Ignorar erros de leitura por frame */ }
