@@ -344,16 +344,12 @@ async function buscarNoMapa() {
     // Encontrar as coordenadas (x, z) desse palete no mapa para dar zoom
     const palete = drawablePaletes.find(p => p.id === locCode || p.loc.codigo === locCode);
     if(palete) {
-      // Zoom in!
-      // Vamos rodar um pouquinho a câmera e aumentar o scale
-      // E centralizar a câmera nele
       const targetScale = 2.5;
       const tX = palete.x;
       const tZ = palete.z;
       
       animateCamera(45, 160, targetScale, tX, tZ);
       
-      // Abre o painel lateral automaticamente!
       setTimeout(() => {
         showPaletePanel(palete);
       }, 500);
@@ -364,6 +360,47 @@ async function buscarNoMapa() {
   } catch(e) {
     showToast('Erro ao buscar item no mapa.', 'error');
   }
+}
+
+// Função para dar zoom em um setor inteiro (clicando na legenda)
+function zoomToSector(setorNomeBusca) {
+  // Procura o setor nos paletes desenhados
+  const sectorPaletes = drawablePaletes.filter(p => p.setor?.nome?.toLowerCase().includes(setorNomeBusca.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+  
+  if (sectorPaletes.length === 0) {
+    showToast('Nenhum palete desenhado para este setor.', 'warning');
+    return;
+  }
+
+  // Calcula o centro do setor baseando-se em todos os paletes dele
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of sectorPaletes) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.z < minZ) minZ = p.z;
+    if (p.z > maxZ) maxZ = p.z;
+  }
+  
+  const centerX = minX + (maxX - minX) / 2;
+  const centerZ = minZ + (maxZ - minZ) / 2;
+
+  // Dá o zoom
+  animateCamera(45, 160, 2.0, centerX, centerZ); // Scale 2.0 (um pouco mais longe que palete individual)
+  
+  // Abre o painel lateral com os KPIs do setor usando o primeiro palete como referência
+  const refPalete = sectorPaletes[0];
+  
+  // Cria um palete fake só para mostrar os KPIs do setor sem focar nos itens de um palete específico
+  const dummyPalete = {
+    ...refPalete,
+    loc: { codigo: 'Visão Geral do Setor', itens: [] } // Sem itens no detalhe
+  };
+  
+  window.highlightedLoc = null; // Remove qualquer highlight de palete
+  
+  setTimeout(() => {
+    showPaletePanel(dummyPalete);
+  }, 500);
 }
 
 // Projeção isométrica 3D
@@ -1016,14 +1053,39 @@ function showPaletePanel(palete) {
   const totalSectorCap = sectorPaletes.reduce((sum, p) => sum + (p.loc?.capacidade || 10), 0);
   const sectorOccupancy = totalSectorCap > 0 ? Math.round((totalSectorItens / totalSectorCap) * 100) : 0;
 
+  let sectorTotalNf = 0;
+  let sectorTotalInternet = 0;
+  let sectorTotalSugestao = 0;
+
+  for (const p of sectorPaletes) {
+    if (p.loc?.itens) {
+      for (const i of p.loc.itens) {
+        if (i.status === 'ESTOQUE') {
+           sectorTotalNf += i.valorNf || 0;
+           sectorTotalInternet += i.valorInternet || 0;
+           sectorTotalSugestao += i.sugestao || 0;
+        }
+      }
+    }
+  }
+
+  const fNf = sectorTotalNf.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+  const fInt = sectorTotalInternet.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+  const fSug = sectorTotalSugestao.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+
   const kpisHtml = `
     <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; margin-bottom:15px; border-left: 3px solid ${palete.cor}">
       <div style="font-size:11px; color:#aaa; margin-bottom:5px; text-transform:uppercase">📊 KPIs do Setor: ${palete.setor?.nome}</div>
-      <div style="display:flex; justify-content:space-between; font-size:12px;">
+      <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px">
         <div>Itens no setor: <strong>${totalSectorItens}</strong></div>
         <div>Ocupação: <strong>${sectorOccupancy}%</strong></div>
       </div>
-      <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; margin-top:6px;">
+      <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+        <div style="display:flex; justify-content:space-between;"><span>Valor NF Total:</span> <strong>${fNf}</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Valor Internet Total:</span> <strong>${fInt}</strong></div>
+        <div style="display:flex; justify-content:space-between; color:#4A90D9"><span>Venda (Lucro Liq 40%):</span> <strong>${fSug}</strong></div>
+      </div>
+      <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; margin-top:8px;">
         <div style="width:${sectorOccupancy}%; height:100%; background:${palete.cor}; border-radius:2px;"></div>
       </div>
     </div>

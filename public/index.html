@@ -207,7 +207,7 @@
         </div>
         <div class="mapa-container">
           <div style="position: absolute; top: 15px; right: 15px; z-index: 10; display: flex; gap: 8px;">
-            <input type="text" id="mapSearchInput" class="form-input" style="width: 250px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2)" placeholder="Buscar no mapa (ex: CTE, NF, Codigo)..." onkeypress="if(event.key==='Enter') buscarNoMapa()">
+            <input type="text" id="mapSearchInput" autocomplete="off" class="form-input" style="width: 250px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2)" placeholder="Buscar no mapa (ex: CTE, NF, Codigo)..." onkeypress="if(event.key==='Enter') buscarNoMapa()">
             <button class="btn-primary" onclick="buscarNoMapa()">🔍</button>
           </div>
           <div class="mapa-controls">
@@ -229,15 +229,15 @@
             <button class="mapa-btn" style="width: auto; padding: 0 12px; font-size: 13px;" onclick="mudarVisaoMapa('entrada')">Entrada</button>
           </div>
           <div class="mapa-legend" style="display:flex; flex-wrap:wrap; gap:10px; padding:10px; background:rgba(0,0,0,0.5); border-radius:8px; margin-bottom:10px;">
-            <div class="legend-item"><span class="legend-dot" style="background:#E74C3C"></span>Sobras/Gaiola</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#2ECC71"></span>Zero Resíduos</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#1ABC9C"></span>Proc. Judicial</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#F1C40F"></span>Tratativa</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#E67E22"></span>Débito</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#27AE60"></span>Novas Vendas</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#3498DB"></span>Seguro</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span>Automotivo</div>
-            <div class="legend-item"><span class="legend-dot" style="background:#34495E"></span>Móveis</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Sobras')"><span class="legend-dot" style="background:#E74C3C"></span>Sobras/Gaiola</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Zero Residuos')"><span class="legend-dot" style="background:#2ECC71"></span>Zero Resíduos</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Proc. Judicial')"><span class="legend-dot" style="background:#1ABC9C"></span>Proc. Judicial</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Tratativa')"><span class="legend-dot" style="background:#F1C40F"></span>Tratativa</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Debito')"><span class="legend-dot" style="background:#E67E22"></span>Débito</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Novas Vendas')"><span class="legend-dot" style="background:#27AE60"></span>Novas Vendas</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Seguro')"><span class="legend-dot" style="background:#3498DB"></span>Seguro</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Automotivo')"><span class="legend-dot" style="background:#9B59B6"></span>Automotivo</div>
+            <div class="legend-item" style="cursor:pointer" onclick="zoomToSector('Moveis')"><span class="legend-dot" style="background:#34495E"></span>Móveis</div>
           </div>
           <canvas id="mapaCanvas"></canvas>
           <div class="mapa-tooltip" id="mapaTooltip"></div>
@@ -520,6 +520,6 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

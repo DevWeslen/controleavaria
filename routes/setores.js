@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
           include: {
             itens: {
               where: { status: 'ESTOQUE' },
-              select: { id: true, nome: true, codigo: true, quantidade: true, status: true }
+              select: { id: true, nome: true, codigo: true, quantidade: true, status: true, valorNf: true, valorInternet: true, sugestao: true }
             }
           }
         }
