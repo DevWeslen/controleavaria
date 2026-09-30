@@ -1831,4 +1831,83 @@ async function buscarPrecoInternet() {
   }
 }
 
+// =====================
+// QR SCANNER (Câmera & USB)
+// =====================
+let html5QrcodeScanner = null;
+
+function abrirScanner() {
+  document.getElementById('modalScanner').style.display = 'flex';
+  
+  // Foca no input USB para leitores de pistola
+  setTimeout(() => {
+    const usbInput = document.getElementById('leitorUsbInput');
+    if(usbInput) usbInput.focus();
+  }, 100);
+
+  // Inicializa a câmera se houver
+  if (!html5QrcodeScanner) {
+    try {
+      html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    } catch(e) {
+      console.log('Erro ao iniciar câmera: ', e);
+    }
+  }
+}
+
+function fecharScanner() {
+  document.getElementById('modalScanner').style.display = 'none';
+  if (html5QrcodeScanner) {
+    try {
+      html5QrcodeScanner.clear();
+    } catch(e) {}
+    html5QrcodeScanner = null;
+  }
+}
+
+async function processScan(codigoLido) {
+  fecharScanner();
+  showToast('Buscando item: ' + codigoLido, 'info');
+  
+  try {
+    const res = await apiFetch(`/items?search=${encodeURIComponent(codigoLido)}`);
+    if (res && res.length > 0) {
+      // Pega o item que deu match exato no código se possivel, ou o primeiro
+      const item = res.find(i => i.codigo === codigoLido) || res[0];
+      if (item.status === 'ESTOQUE') {
+        abrirModalSaida(item.id, item.nome, item.quantidade);
+      } else {
+        showToast('Este item já tem saída registrada!', 'warning');
+      }
+    } else {
+      showToast('Item não encontrado pelo código: ' + codigoLido, 'error');
+    }
+  } catch (e) {
+    showToast('Erro ao buscar item pelo código: ' + e.message, 'error');
+  }
+}
+
+function onScanSuccess(decodedText) {
+  processScan(decodedText);
+}
+function onScanFailure(error) { /* Ignorar erros de leitura por frame */ }
+
+// Ouvinte para o leitor USB dar o Enter
+document.addEventListener('DOMContentLoaded', () => {
+  const usbInput = document.getElementById('leitorUsbInput');
+  if(usbInput) {
+    usbInput.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const code = this.value.trim();
+        if (code) {
+          processScan(code);
+          this.value = '';
+        }
+      }
+    });
+  }
+});
+
 

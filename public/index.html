@@ -514,9 +514,27 @@
     </div>
   </div>
 
+  <!-- Modal do Scanner QR Code -->
+  <div class="modal-overlay" id="modalScanner" style="display:none">
+    <div class="modal" style="width: 400px;">
+      <div class="modal-header">
+        <h3>Escanear QR Code</h3>
+        <button class="modal-close" onclick="fecharScanner()">✕</button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 20px;">
+        <div id="qr-reader" style="width: 100%; border: 1px solid #333; border-radius: 8px; overflow: hidden; margin-bottom: 15px;"></div>
+        <p style="font-size: 12px; color: #888;">Aponte a câmera para a etiqueta ou bipe com o leitor USB abaixo:</p>
+        <input type="text" id="leitorUsbInput" class="form-input" style="width:100%; text-align:center; font-family:monospace; letter-spacing:1px; margin-top:10px;" placeholder="Ou posicione o cursor aqui e bipe (USB)" autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="fecharScanner()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>
