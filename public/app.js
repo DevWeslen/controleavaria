@@ -1696,9 +1696,13 @@ async function buscarPrecoInternet() {
       html += `<div style="font-size: 11px; color: #888; margin-bottom: 5px;">Baseado em ${res.options.length} resultados reais:</div>`;
       
       res.options.forEach((opt, idx) => {
-        html += `<div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
-          <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;" title="${opt.title}">- ${opt.title}</span>
-          <span>R$ ${opt.price.toFixed(2).replace('.',',')} <a href="${opt.link}" target="_blank" style="color:#4A90D9;text-decoration:none">🛒</a></span>
+        const imgHtml = opt.image ? `<img src="${opt.image}" style="width: 28px; height: 28px; object-fit: contain; margin-right: 8px; border-radius: 4px; background: #fff;" />` : '';
+        html += `<div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+          <div style="display: flex; align-items: center; max-width: 70%; overflow: hidden;">
+            ${imgHtml}
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${opt.title}">- ${opt.title}</span>
+          </div>
+          <span style="white-space: nowrap; margin-left: 5px;">R$ ${opt.price.toFixed(2).replace('.',',')} <a href="${opt.link}" target="_blank" style="color:#4A90D9;text-decoration:none; margin-left: 5px;">🛒</a></span>
         </div>`;
       });
       
