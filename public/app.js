@@ -1016,6 +1016,8 @@ function showPaletePanel(palete) {
 
 function closeMpaPanel() {
   document.getElementById('mapaPanel').style.display = 'none';
+  window.highlightedLoc = null;
+  animateCamera(25, 145, 1, 0, 0);
 }
 
 // =====================
