@@ -7,7 +7,7 @@
   <title>AvariasControl — Controle de Estoque</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=22">
   <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body class="sidebar-collapsed">
@@ -486,6 +486,32 @@
 
 
 
+  <!-- Modal de Saída em Massa (Lote) -->
+  <div class="modal-overlay" id="modalLoteSaida" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 style="color:var(--primary)">Saída em Lote</h3>
+        <button class="modal-close" onclick="closeModal('modalLoteSaida')">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align:center; padding: 30px 20px;">
+        <div style="font-size: 40px; margin-bottom: 15px;">📦</div>
+        <h4 id="modalLoteNome" style="margin:0 0 10px 0; color:#fff; font-size:18px;"></h4>
+        <p style="margin:0 0 20px 0; color:var(--text-muted); font-size:14px;">
+          Este lote possui <strong id="modalLoteQtd" style="color:#fff"></strong> itens em estoque.<br>
+          Deseja dar saída em <strong>TODOS</strong> os itens deste lote agora?
+        </p>
+        <div class="form-group" style="text-align:left;">
+          <label>Destino da Saída</label>
+          <input type="text" id="modalLoteDestino" class="form-input" value="Leilão/Transferência" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: center; gap: 15px;">
+        <button class="btn-secondary" onclick="closeModal('modalLoteSaida')">Cancelar</button>
+        <button class="btn-primary" id="btnConfirmarLoteSaida" style="padding: 10px 30px; font-weight:bold;">Confirmar Saída em Massa</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal de Saída de Item -->
   <div class="modal-overlay" id="modalSaida" style="display:none">
     <div class="modal">
@@ -609,7 +635,7 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=35"></script>
-  <script src="lotes_sse.js?v=5"></script>
+  <script src="app.js?v=36"></script>
+  <script src="lotes_sse.js?v=6"></script>
 </body>
 </html>

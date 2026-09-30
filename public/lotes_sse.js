@@ -188,16 +188,25 @@ async function loadLotes() {
           <p style="margin:0 0 10px 0; font-size:13px; color:#bbb"><strong>${lote.itens.length} itens</strong> associados.</p>
           
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            ${lote.itens.map(i => `<span style="background:#333; padding:2px 6px; border-radius:4px; font-size:11px; color:#ddd">${i.codigo} - ${i.nome}</span>`).join('')}
+            ${lote.itens.map(i => `
+              <span style="background:#333; padding:4px 8px; border-radius:4px; font-size:11px; color:#ddd; display:flex; align-items:center; gap:6px;">
+                ${i.codigo} - ${i.nome}
+                ${lote.status === 'ABERTO' ? `<button onclick="removerItemDoLote('${lote.id}', '${i.id}')" style="background:none; border:none; color:#E74C3C; cursor:pointer; font-weight:bold; font-size:14px; padding:0; line-height:1;" title="Remover item do lote">&times;</button>` : ''}
+              </span>
+            `).join('')}
           </div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:5px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
           ${lote.status === 'ABERTO' ? `
-            <button class="btn-primary-small" onclick="promptAdicionarItemLote('${lote.id}')">➕ Adicionar Item</button>
-            ${lote.itens.length > 0 ? `<button class="btn-danger-small" onclick="fecharLote('${lote.id}')">🔒 Fechar Lote</button>` : ''}
+             <button class="btn-danger-small" style="background:transparent; border:1px solid #E74C3C; color:#E74C3C;" onclick="apagarLote('${lote.id}')">🗑️ Apagar Lote</button>
+             <div style="display:flex; gap:10px;">
+                <button class="btn-primary-small" onclick="promptAdicionarItemLote('${lote.id}')">➕ Adicionar Item</button>
+                ${lote.itens.length > 0 ? `<button class="btn-danger-small" onclick="fecharLote('${lote.id}')">🔒 Fechar Lote</button>` : ''}
+             </div>
           ` : `
-            <button class="btn-primary-small" onclick="imprimirEtiquetaLote('${lote.codigo}', '${lote.nome}')">🖨️ Etiqueta</button>
+             <div></div>
+             <button class="btn-primary-small" onclick="imprimirEtiquetaLote('${lote.codigo}', '${lote.nome}')">🖨️ Etiqueta</button>
           `}
         </div>
       </div>
@@ -307,4 +316,26 @@ function imprimirEtiquetaLote(codigo, nome) {
     </html>
   `);
   preview.document.close();
+}
+
+async function apagarLote(loteId) {
+  if (!confirm('Deseja realmente apagar este lote? Os itens voltarão para o estoque normal.')) return;
+  try {
+    await apiFetch(`/lotes/${loteId}`, { method: 'DELETE' });
+    showToast('Lote apagado com sucesso!', 'success');
+    loadLotes();
+  } catch(e) {
+    showToast('Erro ao apagar lote: ' + e.message, 'error');
+  }
+}
+
+async function removerItemDoLote(loteId, itemId) {
+  if (!confirm('Remover este item do lote?')) return;
+  try {
+    await apiFetch(`/lotes/${loteId}/itens/${itemId}`, { method: 'DELETE' });
+    showToast('Item removido do lote!', 'success');
+    loadLotes();
+  } catch(e) {
+    showToast('Erro ao remover item do lote: ' + e.message, 'error');
+  }
 }

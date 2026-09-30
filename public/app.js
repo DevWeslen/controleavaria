@@ -1146,11 +1146,20 @@ function closeMpaPanel() {
 // =====================
 // ESTOQUE
 // =====================
-async function loadEstoque(statusFilter = '', setorFilter = '') {
+async function loadEstoque(statusFilter, setorFilter) {
   const grid = document.getElementById('itemsGrid');
   grid.innerHTML = '<div class="loading-spinner"></div>';
 
   try {
+    // Se não for fornecido, pega do tab ativo (ou vazio se for "Todos")
+    if (statusFilter === undefined) {
+      const activeTab = document.querySelector('.filter-tab.active');
+      statusFilter = activeTab ? (activeTab.dataset.status || '') : '';
+    }
+    if (setorFilter === undefined) {
+      setorFilter = document.getElementById('filterSetor')?.value || '';
+    }
+
     let url = '/items?';
     if (statusFilter) url += `status=${statusFilter}&`;
     if (setorFilter) url += `setorId=${setorFilter}&`;
@@ -1816,16 +1825,28 @@ async function processScan(codigoLido) {
       try {
         const lote = await apiFetch(`/lotes/codigo/${encodeURIComponent(codigoLido)}`);
         if (lote && lote.id) {
-          if (confirm(`Lote encontrado: ${lote.nome}\nPossui ${lote.itens.length} itens em estoque.\nDeseja dar saída em TODOS os itens deste lote agora?`)) {
-             await apiFetch(`/lotes/${lote.id}/saida`, {
-               method: 'POST',
-               body: { motivo: 'LOTE_SAIDA', destino: 'Leilão/Transferência' }
-             });
-             showToast('Saída em massa registrada com sucesso!', 'success');
-             if(currentPage === 'dashboard') loadDashboard();
-             if(currentPage === 'estoque') loadEstoque();
-             if(currentPage === 'mapa') loadMapa();
-          }
+          // Usa o modal bonitinho em vez de window.confirm()
+          document.getElementById('modalLoteNome').textContent = lote.nome;
+          document.getElementById('modalLoteQtd').textContent = lote.itens.length;
+          document.getElementById('modalLoteSaida').style.display = 'flex';
+          
+          document.getElementById('btnConfirmarLoteSaida').onclick = async () => {
+             const destino = document.getElementById('modalLoteDestino').value || 'Leilão/Transferência';
+             try {
+               await apiFetch(`/lotes/${lote.id}/saida`, {
+                 method: 'POST',
+                 body: { motivo: 'LOTE_SAIDA', destino }
+               });
+               showToast('Saída em massa registrada com sucesso!', 'success');
+               closeModal('modalLoteSaida');
+               if(currentPage === 'dashboard') loadDashboard();
+               if(currentPage === 'estoque') loadEstoque();
+               if(currentPage === 'mapa') loadMapa();
+               if(currentPage === 'lotes') loadLotes();
+             } catch(e) {
+               showToast('Erro ao dar saída no lote: ' + e.message, 'error');
+             }
+          };
           return;
         }
       } catch(err) {
