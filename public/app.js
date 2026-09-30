@@ -1675,30 +1675,4 @@ function mudarVisaoMapa(viewMode) {
   drawWarehouse();
 }
 
-async function buscarNoMapa() {
-  const query = document.getElementById('mapSearchInput').value.toLowerCase();
-  window.highlightedLoc = null;
-  if (!query) {
-    drawWarehouse();
-    return;
-  }
-  
-  // Encontrar o item pela query
-  // Pode ser nome, codigo do item ou CTE. Precisamos buscar todos os itens para achar onde ta
-  try {
-    const all = await apiFetch(`/items?search=${encodeURIComponent(query)}`);
-    if(all.length > 0) {
-      // Pega a localizacao do primeiro item
-      const item = all[0];
-      if(item.localizacao) {
-        window.highlightedLoc = item.localizacao.codigo;
-        showToast('Item encontrado no setor ' + (item.localizacao.setor?.nome || ''), 'success');
-      } else {
-        showToast('Item sem palete definido!', 'error');
-      }
-    } else {
-      showToast('Nenhum item encontrado!', 'error');
-    }
-  } catch(e) {}
-  drawWarehouse();
-}
+
