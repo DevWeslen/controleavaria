@@ -181,7 +181,12 @@ async function loadDashboard() {
     const setores = await apiFetch('/setores');
     allSetores = setores;
 
-    ocupacaoEl.innerHTML = setores.map(s => {
+    const setoresParaOcupacao = setores.filter(s => {
+      const n = s.nome.toUpperCase();
+      return !n.includes('SEGURO') && !n.includes('VENDA') && !n.includes('SOBRA');
+    });
+
+    ocupacaoEl.innerHTML = setoresParaOcupacao.map(s => {
       const totalItens = s.localizacoes.reduce((acc, l) => acc + (l._count?.itens || 0), 0);
       const capacidade = s.localizacoes.reduce((acc, l) => acc + (l.capacidade || 0), 0);
       const pct = capacidade > 0 ? Math.min(100, Math.round((totalItens / capacidade) * 100)) : 0;
