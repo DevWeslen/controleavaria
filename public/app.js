@@ -237,35 +237,12 @@ function initCanvas() {
   mapaCanvas.width = container.clientWidth - 32;
   mapaCanvas.height = Math.max(420, window.innerHeight - 180);
 
-  // Mouse events para rotação
-  mapaCanvas.addEventListener('mousedown', e => {
-    isDragging = true;
-    lastMouse = { x: e.clientX, y: e.clientY };
-    mapaCanvas.style.cursor = 'grabbing';
-  });
-
+  // Mouse events apenas para hover e click (sem arrastar)
   mapaCanvas.addEventListener('mousemove', e => {
-    if (isDragging) {
-      const dx = e.clientX - lastMouse.x;
-      const dy = e.clientY - lastMouse.y;
-      rotY += dx * 0.5;
-      rotX += dy * 0.3;
-      rotX = Math.max(-60, Math.min(70, rotX));
-      lastMouse = { x: e.clientX, y: e.clientY };
-      drawWarehouse();
-    } else {
-      handleMapaHover(e);
-    }
-  });
-
-  mapaCanvas.addEventListener('mouseup', () => {
-    isDragging = false;
-    mapaCanvas.style.cursor = 'grab';
+    handleMapaHover(e);
   });
 
   mapaCanvas.addEventListener('mouseleave', () => {
-    isDragging = false;
-    mapaCanvas.style.cursor = 'grab';
     hoveredPalete = null;
     document.getElementById('mapaTooltip').style.opacity = '0';
     drawWarehouse();
@@ -273,18 +250,106 @@ function initCanvas() {
 
   mapaCanvas.addEventListener('click', e => handleMapaClick(e));
 
-  mapaCanvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    mapaScale = Math.max(0.5, Math.min(2, mapaScale - e.deltaY * 0.001));
-    drawWarehouse();
-  });
+  // Removemos o wheel zoom manual
+  // mapaCanvas.addEventListener('wheel', e => { ... });
 
-  // Controles de botão
+  // Controles de botão (Mantivemos para pequenos ajustes)
   document.getElementById('btnRotateLeft').onclick = () => { rotY -= 15; drawWarehouse(); };
   document.getElementById('btnRotateRight').onclick = () => { rotY += 15; drawWarehouse(); };
-  document.getElementById('btnZoomIn').onclick = () => { mapaScale = Math.min(2, mapaScale + 0.15); drawWarehouse(); };
+  document.getElementById('btnZoomIn').onclick = () => { mapaScale = Math.min(3, mapaScale + 0.15); drawWarehouse(); };
   document.getElementById('btnZoomOut').onclick = () => { mapaScale = Math.max(0.4, mapaScale - 0.15); drawWarehouse(); };
-  document.getElementById('btnResetView').onclick = () => { rotX = 25; rotY = 145; mapaScale = 1; drawWarehouse(); };
+  document.getElementById('btnResetView').onclick = () => { 
+    // Anima de volta para o padrão
+    animateCamera(25, 145, 1, 0, 0); 
+  };
+}
+
+let animFrame = null;
+let camTargetX = 0, camTargetY = 0;
+window.camX = 0; 
+window.camY = 0;
+window.camZ = 0;
+
+function animateCamera(targetRotX, targetRotY, targetScale, targetCamX, targetCamZ) {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  
+  const speed = 0.05; // suavidade
+  const step = () => {
+    let diffRotX = targetRotX - rotX;
+    let diffRotY = targetRotY - rotY;
+    let diffScale = targetScale - mapaScale;
+    let diffCX = targetCamX - window.camX;
+    let diffCZ = targetCamZ - (window.camZ || 0);
+
+    if (Math.abs(diffRotX) < 0.1 && Math.abs(diffRotY) < 0.1 && Math.abs(diffScale) < 0.01 && Math.abs(diffCX) < 0.1 && Math.abs(diffCZ) < 0.1) {
+      rotX = targetRotX;
+      rotY = targetRotY;
+      mapaScale = targetScale;
+      window.camX = targetCamX;
+      window.camZ = targetCamZ;
+      drawWarehouse();
+      return;
+    }
+
+    rotX += diffRotX * speed;
+    rotY += diffRotY * speed;
+    mapaScale += diffScale * speed;
+    window.camX += diffCX * speed;
+    window.camZ = (window.camZ || 0) + diffCZ * speed;
+    
+    drawWarehouse();
+    animFrame = requestAnimationFrame(step);
+  };
+  step();
+}
+
+// Função de Busca no Mapa
+async function buscarNoMapa() {
+  const q = document.getElementById('mapSearchInput').value.trim();
+  if(!q) return;
+
+  try {
+    const items = await apiFetch(`/items?q=${encodeURIComponent(q)}&status=ESTOQUE`);
+    if(items.length === 0) {
+      showToast('Nenhum item em estoque encontrado para essa busca.', 'warning');
+      window.highlightedLoc = null;
+      drawWarehouse();
+      return;
+    }
+
+    const firstItem = items[0];
+    const locCode = firstItem.localizacao?.codigo;
+    if(!locCode) {
+      showToast('O item encontrado não possui localização!', 'warning');
+      return;
+    }
+
+    window.highlightedLoc = locCode;
+    showToast(`Item encontrado na localização: ${locCode}`, 'success');
+
+    // Encontrar as coordenadas (x, z) desse palete no mapa para dar zoom
+    const palete = drawablePaletes.find(p => p.id === locCode || p.loc.codigo === locCode);
+    if(palete) {
+      // Zoom in!
+      // Vamos rodar um pouquinho a câmera e aumentar o scale
+      // E centralizar a câmera nele
+      const targetScale = 2.5;
+      const tX = palete.x;
+      const tZ = palete.z;
+      
+      animateCamera(45, 160, targetScale, tX, tZ);
+      
+      // Abre o painel lateral automaticamente!
+      setTimeout(() => {
+        openMapaPanel(palete.loc.codigo, palete.setor?.nome || 'Setor', palete.totalItens);
+      }, 500);
+    } else {
+      drawWarehouse();
+    }
+
+  } catch(e) {
+    showToast('Erro ao buscar item no mapa.', 'error');
+  }
 }
 
 // Projeção isométrica 3D
