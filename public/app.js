@@ -309,7 +309,7 @@ async function buscarNoMapa() {
   if(!q) return;
 
   try {
-    const items = await apiFetch(`/items?q=${encodeURIComponent(q)}&status=ESTOQUE`);
+    const items = await apiFetch(`/items?search=${encodeURIComponent(q)}&status=ESTOQUE`);
     if(items.length === 0) {
       showToast('Nenhum item em estoque encontrado para essa busca.', 'warning');
       window.highlightedLoc = null;
