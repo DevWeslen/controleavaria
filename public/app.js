@@ -1907,7 +1907,7 @@ function startAnimLoop() {
   isAnimRunning = true;
   function loop() {
     updateCharacter();
-    if (currentPage === 'mapa') {
+    if (currentPage === 'mapa' && typeof mapaCanvas !== 'undefined' && mapaCanvas) {
       drawWarehouse();
     }
     requestAnimationFrame(loop);
