@@ -1685,17 +1685,28 @@ async function buscarPrecoInternet() {
   }
   
   const divRes = document.getElementById('scrapeResults');
-  divRes.innerHTML = '🤖 Robô pesquisando no Mercado Livre...';
+  divRes.innerHTML = '🤖 Robô pesquisando na internet...';
   
   try {
     const res = await apiFetch(`/items/scrape/search?q=${encodeURIComponent(nome)}`);
-    if(res && res.price) {
-      document.getElementById('inputValorInternet').value = res.price;
-      divRes.innerHTML = `✅ Encontrado no Mercado Livre: R$ ${res.price.toFixed(2).replace('.',',')} <a href="${res.url}" target="_blank" style="color:#4A90D9;margin-left:10px;text-decoration:none">🛒 Ver anúncio</a>`;
+    if(res && res.success && res.options && res.options.length > 0) {
+      document.getElementById('inputValorInternet').value = res.average;
+      
+      let html = `<div style="margin-bottom: 8px;">✅ <b>Média encontrada: R$ ${res.average.toFixed(2).replace('.',',')}</b></div>`;
+      html += `<div style="font-size: 11px; color: #888; margin-bottom: 5px;">Baseado em ${res.options.length} resultados reais:</div>`;
+      
+      res.options.forEach((opt, idx) => {
+        html += `<div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
+          <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;" title="${opt.title}">- ${opt.title}</span>
+          <span>R$ ${opt.price.toFixed(2).replace('.',',')} <a href="${opt.link}" target="_blank" style="color:#4A90D9;text-decoration:none">🛒</a></span>
+        </div>`;
+      });
+      
+      divRes.innerHTML = html;
       calcularSugestao();
-      showToast('Preço encontrado na internet!', 'success');
+      showToast('Preço médio encontrado na internet!', 'success');
     } else {
-      divRes.innerHTML = '❌ Não foi possível encontrar um preço exato.';
+      divRes.innerHTML = '❌ Não foi possível encontrar um preço exato na internet.';
       showToast('Não encontrou preço', 'warning');
     }
   } catch(e) {
