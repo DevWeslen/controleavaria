@@ -527,6 +527,20 @@
     </div>
   </div>
 
+  <!-- Modal de Sucesso de Registro -->
+  <div class="modal-overlay" id="modalRegistrationSuccess" style="display:none; z-index: 10000;">
+    <div class="modal" style="width: 400px; text-align: center;">
+      <div class="modal-body" style="padding: 30px 20px;">
+        <div style="font-size: 40px; margin-bottom: 15px;">✅</div>
+        <h4 style="margin:0 0 10px 0; color:#fff; font-size:20px;">Item Registrado!</h4>
+        <div id="modalRegistrationDetails" style="margin:0 0 20px 0; color:var(--text-muted); font-size:14px; line-height: 1.5;"></div>
+        <div style="display:flex; justify-content:center;">
+          <button class="btn-primary" onclick="closeRegistrationModal()" style="padding: 10px 30px; font-weight:bold;">Continuar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal de Saída de Item -->
   <div class="modal-overlay" id="modalSaida" style="display:none">
     <div class="modal">
@@ -650,7 +664,7 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
   <script src="lotes_sse.js?v=7"></script>
 </body>
 </html>

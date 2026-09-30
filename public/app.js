@@ -1316,20 +1316,48 @@ async function submitCadastro(e) {
     document.getElementById('formCadastrar').reset();
 
     // Mostra o modal e pergunta se quer ir para o mapa
-    customConfirm(
-      'Item Registrado!', 
-      `O item ${item.nome} foi registrado com sucesso. Deseja ver a descrição dele no Mapa 3D ou continuar registrando?`, 
-      '✅',
-      () => {
-        // Vai pro mapa e busca o item
-        navigateTo('mapa');
-        document.getElementById('mapSearchInput').value = item.codigo;
-        buscarNoMapa();
+    // Agora vai automaticamente para o mapa, foca no item, e mostra um modal
+    navigateTo('mapa');
+
+    // Forçar visão 3D para o zoom
+    const selectMode = document.getElementById('viewModeSelect');
+    if(selectMode && selectMode.value !== '3d') {
+      selectMode.value = '3d';
+      window.currentViewMode = '3d';
+      drawWarehouse(); // Atualiza paletes
+    }
+
+    const locCode = item.localizacao?.codigo;
+    if (locCode) {
+      window.highlightedLoc = locCode;
+      
+      const palete = drawablePaletes.find(p => 
+        p.id === locCode || 
+        (p.loc && p.loc.codigo === locCode) ||
+        (p.setor && p.setor.nome === locCode)
+      );
+
+      if(palete) {
+        const targetScale = 2.5;
+        const tX = palete.x;
+        const tZ = palete.z;
+        animateCamera(45, 160, targetScale, tX, tZ);
+      } else {
+        drawWarehouse();
       }
-    );
-    // Troca o texto do botão de cancelar do confirm para "Continuar Registrando"
-    document.getElementById('btnConfirmCancel').textContent = 'Continuar Registrando';
-    document.getElementById('btnConfirmOk').textContent = 'Ver no Mapa';
+    }
+
+    // Modal format
+    setTimeout(() => {
+      const details = document.getElementById('modalRegistrationDetails');
+      details.innerHTML = `
+        <strong style="color:white;font-size:16px;">${item.nome}</strong><br>
+        <span style="color:var(--primary);">Código: ${item.codigo}</span><br>
+        Localização: ${item.localizacao?.codigo || '—'}<br>
+        Quantidade: ${item.quantidade}
+      `;
+      document.getElementById('modalRegistrationSuccess').style.display = 'flex';
+    }, 600);
 
   } catch (e) {
     showToast('Erro ao cadastrar: ' + e.message, 'error');
@@ -2063,3 +2091,10 @@ function startAnimLoop() {
 // Inicia o loop de animação
 startAnimLoop();
 
+window.closeRegistrationModal = function() {
+  document.getElementById('modalRegistrationSuccess').style.display = 'none';
+  window.highlightedLoc = null;
+  // Voltar zoom normal e visão padrão do mapa
+  animateCamera(25, 145, 1, 0, 0);
+  drawWarehouse();
+};
