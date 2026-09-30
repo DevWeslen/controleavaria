@@ -1442,6 +1442,16 @@ async function showItemDetails(id) {
     const statusClass = item.status === 'ESTOQUE' ? 'status-estoque' : 'status-saiu';
     const statusLabel = item.status === 'ESTOQUE' ? 'Em Estoque' : 'Saiu';
 
+    // Calcular quantidade total se houver itens duplicados
+    let quantidadeAgrupada = item.quantidade;
+    if (window.drawablePaletes && item.status === 'ESTOQUE') {
+      const p = drawablePaletes.find(p => p.loc?.itens?.some(i => i.id === item.id));
+      if (p && p.loc && p.loc.itens) {
+        const idens = p.loc.itens.filter(i => i.codigo === item.codigo && i.status === 'ESTOQUE');
+        quantidadeAgrupada = idens.reduce((sum, i) => sum + i.quantidade, 0);
+      }
+    }
+
     body.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span class="item-status-badge ${statusClass}">${statusLabel}</span>
@@ -1455,7 +1465,7 @@ async function showItemDetails(id) {
         </div>
         <div class="detail-field">
           <label>Quantidade</label>
-          <span style="font-size:20px;font-weight:700">${item.quantidade}</span>
+          <span style="font-size:20px;font-weight:700">${quantidadeAgrupada}</span>
         </div>
         <div class="detail-field">
           <label>Localização</label>
@@ -1547,7 +1557,17 @@ async function showItemDetails(id) {
 function abrirSaidaDoModal() {
   if (!currentItemForModal) return;
   closeModal('modalDetalhes');
-  abrirModalSaida(currentItemForModal.id, currentItemForModal.nome, currentItemForModal.quantidade);
+  
+  let quantidadeAgrupada = currentItemForModal.quantidade;
+  if (window.drawablePaletes && currentItemForModal.status === 'ESTOQUE') {
+    const p = drawablePaletes.find(p => p.loc?.itens?.some(i => i.id === currentItemForModal.id));
+    if (p && p.loc && p.loc.itens) {
+      const idens = p.loc.itens.filter(i => i.codigo === currentItemForModal.codigo && i.status === 'ESTOQUE');
+      quantidadeAgrupada = idens.reduce((sum, i) => sum + i.quantidade, 0);
+    }
+  }
+  
+  abrirModalSaida(currentItemForModal.id, currentItemForModal.nome, quantidadeAgrupada);
 }
 
 function abrirModalSaida(id, nome, qtdMax) {
