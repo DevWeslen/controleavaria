@@ -1111,7 +1111,17 @@ function showPaletePanel(palete) {
   if (!emEstoque.length) {
     contentHtml += '<div class="empty-state"><p>Nenhum item neste palete</p></div>';
   } else {
-    contentHtml += emEstoque.map(item => `
+    // Agrupa os itens pelo código para evitar poluição visual
+    const groupedItems = {};
+    emEstoque.forEach(item => {
+      if (!groupedItems[item.codigo]) {
+        groupedItems[item.codigo] = { ...item };
+      } else {
+        groupedItems[item.codigo].quantidade += item.quantidade;
+      }
+    });
+
+    contentHtml += Object.values(groupedItems).map(item => `
       <div class="panel-item-row">
         <div>
           <div class="panel-item-name">${item.nome}</div>
