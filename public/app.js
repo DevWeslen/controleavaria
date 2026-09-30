@@ -645,6 +645,7 @@ function drawWarehouse() {
       for(let n=1; n<=levels; n++) {
         layout.push({
           id: `SOB-C${String(c+1).padStart(2, '0')}-N${n}`, 
+          dbId: dbId,
           label: `Sobras (Col ${c+1} Niv ${n})`, 
           cor: color, 
           x: startX + (c * spaceX) + (spaceX / 2) - 1.25, 

@@ -4,138 +4,70 @@ const { v4: uuidv4 } = require('uuid');
 async function seed() {
   console.log('🌱 Populando banco de dados com dados iniciais...\n');
 
-  // Criar setores
+  // Criar setores baseados no mapa 3D
   const setores = [
-    {
-      id: uuidv4(),
-      nome: 'SEGURO',
-      descricao: 'Itens de alto valor ou sensíveis',
-      cor: '#E74C3C',
-      posicaoX: 0,
-      posicaoY: 0,
-      largura: 12,
-      altura: 8
-    },
-    {
-      id: uuidv4(),
-      nome: 'VENDA',
-      descricao: 'Itens prontos para comercialização',
-      cor: '#27AE60',
-      posicaoX: 14,
-      posicaoY: 0,
-      largura: 12,
-      altura: 8
-    },
-    {
-      id: uuidv4(),
-      nome: 'SOBRA',
-      descricao: 'Sobras em paletes',
-      cor: '#F39C12',
-      posicaoX: 28,
-      posicaoY: 0,
-      largura: 12,
-      altura: 8
-    }
+    { id: uuidv4(), nome: 'Gaiola', descricao: 'Área da Gaiola', cor: '#E74C3C' },
+    { id: uuidv4(), nome: 'Proc. Judicial', descricao: 'Processos Judiciais', cor: '#1ABC9C' },
+    { id: uuidv4(), nome: 'Zero Residuos', descricao: 'Itens Zero Resíduos', cor: '#2ECC71' },
+    { id: uuidv4(), nome: 'Debito', descricao: 'Itens em Débito', cor: '#E67E22' },
+    { id: uuidv4(), nome: 'Tratativa Com.', descricao: 'Tratativa Comercial', cor: '#F1C40F' },
+    { id: uuidv4(), nome: 'Novas Vendas', descricao: 'Itens para Novas Vendas', cor: '#27AE60' },
+    { id: uuidv4(), nome: 'Seguro', descricao: 'Itens do Seguro', cor: '#3498DB' },
+    { id: uuidv4(), nome: 'Lotes Fechados', descricao: 'Área de Lotes', cor: '#F59E0B' },
+    { id: uuidv4(), nome: 'Sobras', descricao: 'Sobras em geral', cor: '#E74C3C' },
   ];
 
   for (const setor of setores) {
     await prisma.setor.upsert({
       where: { nome: setor.nome },
       update: {},
-      create: setor
+      create: {
+        id: setor.id,
+        nome: setor.nome,
+        descricao: setor.descricao,
+        cor: setor.cor,
+        posicaoX: 0, posicaoY: 0, largura: 10, altura: 10 // Padrão
+      }
     });
   }
-  console.log('✅ Setores criados: SEGURO, VENDA, SOBRA');
+  console.log('✅ Setores atualizados');
 
-  // Buscar setores criados
-  const setorSeguro = await prisma.setor.findUnique({ where: { nome: 'SEGURO' } });
-  const setorVenda = await prisma.setor.findUnique({ where: { nome: 'VENDA' } });
-  const setorSobra = await prisma.setor.findUnique({ where: { nome: 'SOBRA' } });
+  const dbSetores = await prisma.setor.findMany();
+  const getSetorId = (nome) => dbSetores.find(s => s.nome === nome)?.id;
 
-  // Criar localizações (paletes)
+  // Criar 1 localização (Genérica) por setor para mapear com o FrontEnd (dbId)
   const localizacoes = [
-    // Seguro
-    { id: uuidv4(), codigo: 'SEG-P01', descricao: 'Palete 1 - Seguro', tipo: 'PALETE', setorId: setorSeguro.id, posicaoX: 1, posicaoY: 0, posicaoZ: 1, capacidade: 20 },
-    { id: uuidv4(), codigo: 'SEG-P02', descricao: 'Palete 2 - Seguro', tipo: 'PALETE', setorId: setorSeguro.id, posicaoX: 4, posicaoY: 0, posicaoZ: 1, capacidade: 20 },
-    { id: uuidv4(), codigo: 'SEG-P03', descricao: 'Palete 3 - Seguro', tipo: 'PALETE', setorId: setorSeguro.id, posicaoX: 7, posicaoY: 0, posicaoZ: 1, capacidade: 20 },
-    // Venda
-    { id: uuidv4(), codigo: 'VEN-P01', descricao: 'Palete 1 - Venda', tipo: 'PALETE', setorId: setorVenda.id, posicaoX: 1, posicaoY: 0, posicaoZ: 1, capacidade: 30 },
-    { id: uuidv4(), codigo: 'VEN-P02', descricao: 'Palete 2 - Venda', tipo: 'PALETE', setorId: setorVenda.id, posicaoX: 4, posicaoY: 0, posicaoZ: 1, capacidade: 30 },
-    { id: uuidv4(), codigo: 'VEN-P03', descricao: 'Palete 3 - Venda', tipo: 'PALETE', setorId: setorVenda.id, posicaoX: 7, posicaoY: 0, posicaoZ: 1, capacidade: 30 },
-    // Sobra
-    { id: uuidv4(), codigo: 'SOB-P01', descricao: 'Palete 1 - Sobra', tipo: 'PALETE', setorId: setorSobra.id, posicaoX: 1, posicaoY: 0, posicaoZ: 1, capacidade: 50 },
-    { id: uuidv4(), codigo: 'SOB-P02', descricao: 'Palete 2 - Sobra', tipo: 'PALETE', setorId: setorSobra.id, posicaoX: 4, posicaoY: 0, posicaoZ: 1, capacidade: 50 },
-    { id: uuidv4(), codigo: 'SOB-P03', descricao: 'Palete 3 - Sobra', tipo: 'PALETE', setorId: setorSobra.id, posicaoX: 7, posicaoY: 0, posicaoZ: 1, capacidade: 50 },
-    { id: uuidv4(), codigo: 'SOB-P04', descricao: 'Palete 4 - Sobra', tipo: 'PALETE', setorId: setorSobra.id, posicaoX: 10, posicaoY: 0, posicaoZ: 1, capacidade: 50 },
+    { id: uuidv4(), codigo: 'GAI-CHAO', descricao: 'Área Gaiola', tipo: 'CHAO', setorId: getSetorId('Gaiola'), capacidade: 100 },
+    { id: uuidv4(), codigo: 'PJ-CHAO', descricao: 'Área Proc. Judicial', tipo: 'CHAO', setorId: getSetorId('Proc. Judicial'), capacidade: 100 },
+    { id: uuidv4(), codigo: 'ZR-CHAO', descricao: 'Área Zero Resíduos', tipo: 'CHAO', setorId: getSetorId('Zero Residuos'), capacidade: 100 },
+    { id: uuidv4(), codigo: 'DB-CHAO', descricao: 'Área Débito', tipo: 'CHAO', setorId: getSetorId('Debito'), capacidade: 100 },
+    { id: uuidv4(), codigo: 'TC-CHAO', descricao: 'Área Tratativa Comercial', tipo: 'CHAO', setorId: getSetorId('Tratativa Com.'), capacidade: 100 },
+    { id: uuidv4(), codigo: 'NV-CHAO', descricao: 'Área Novas Vendas', tipo: 'CHAO', setorId: getSetorId('Novas Vendas'), capacidade: 300 },
+    { id: uuidv4(), codigo: 'SEG-CHAO', descricao: 'Área Seguro', tipo: 'CHAO', setorId: getSetorId('Seguro'), capacidade: 200 },
+    { id: uuidv4(), codigo: 'LOTES-GERAL', descricao: 'Área Lotes Fechados', tipo: 'CHAO', setorId: getSetorId('Lotes Fechados'), capacidade: 200 },
+    { id: uuidv4(), codigo: 'SOB', descricao: 'Porta Pallet Sobras', tipo: 'PALETE', setorId: getSetorId('Sobras'), capacidade: 50 },
   ];
 
   for (const loc of localizacoes) {
-    await prisma.localizacao.upsert({
-      where: { codigo: loc.codigo },
-      update: {},
-      create: loc
-    });
-  }
-  console.log('✅ Localizações (paletes) criadas');
-
-  // Criar alguns itens de exemplo
-  const locSEG01 = await prisma.localizacao.findUnique({ where: { codigo: 'SEG-P01' } });
-  const locVEN01 = await prisma.localizacao.findUnique({ where: { codigo: 'VEN-P01' } });
-  const locSOB01 = await prisma.localizacao.findUnique({ where: { codigo: 'SOB-P01' } });
-
-  const itemsExemplo = [
-    {
-      id: uuidv4(),
-      codigo: `AV-EXEMPLO-001`,
-      nome: 'TV 55" Samsung - Tela trincada',
-      descricao: 'Televisor com avaria na tela',
-      quantidade: 1,
-      motivoAvaria: 'Tela trincada no transporte',
-      localizacaoId: locSEG01.id,
-      status: 'ESTOQUE'
-    },
-    {
-      id: uuidv4(),
-      codigo: `AV-EXEMPLO-002`,
-      nome: 'Geladeira Brastemp 400L',
-      descricao: 'Amassado na lateral',
-      quantidade: 2,
-      motivoAvaria: 'Amassado na lateral',
-      localizacaoId: locVEN01.id,
-      status: 'ESTOQUE'
-    },
-    {
-      id: uuidv4(),
-      codigo: `AV-EXEMPLO-003`,
-      nome: 'Caixas de embalagem papelão',
-      descricao: 'Embalagens diversas',
-      quantidade: 50,
-      motivoAvaria: null,
-      localizacaoId: locSOB01.id,
-      status: 'ESTOQUE'
-    }
-  ];
-
-  for (const item of itemsExemplo) {
-    const existing = await prisma.item.findUnique({ where: { codigo: item.codigo } });
-    if (!existing) {
-      const created = await prisma.item.create({ data: item });
-      await prisma.movimentacao.create({
-        data: {
-          id: uuidv4(),
-          itemId: created.id,
-          tipo: 'ENTRADA',
-          motivo: 'CADASTRO',
-          quantidade: created.quantidade,
-          usuario: 'Sistema',
-          observacao: 'Item de exemplo criado no seed'
+    if(loc.setorId) {
+      await prisma.localizacao.upsert({
+        where: { codigo: loc.codigo },
+        update: {},
+        create: {
+          id: loc.id,
+          codigo: loc.codigo,
+          descricao: loc.descricao,
+          tipo: loc.tipo,
+          setorId: loc.setorId,
+          capacidade: loc.capacidade,
+          posicaoX: 0, posicaoY: 0, posicaoZ: 0
         }
       });
     }
   }
-  console.log('✅ Itens de exemplo criados\n');
+  console.log('✅ Localizações base criadas com base no layout 3D');
+
   console.log('🎉 Seed concluído com sucesso!');
-  console.log('   Acesse http://localhost:3000 para visualizar o sistema.\n');
 }
 
 seed()
