@@ -1836,12 +1836,15 @@ async function processScan(codigoLido) {
     // 2. Senão, busca como Item normal
     const res = await apiFetch(`/items?search=${encodeURIComponent(codigoLido)}`);
     if (res && res.length > 0) {
-      // Pega o item que deu match exato no código se possivel, ou o primeiro
-      const item = res.find(i => i.codigo === codigoLido) || res[0];
-      if (item.status === 'ESTOQUE') {
-        abrirModalSaida(item.id, item.nome, item.quantidade);
+      // Pega todos os itens idênticos em estoque para somar a quantidade
+      const idens = res.filter(i => i.codigo === codigoLido && i.status === 'ESTOQUE');
+      
+      if (idens.length > 0) {
+        const itemPrinc = idens[0];
+        const qtdTotal = idens.reduce((sum, i) => sum + i.quantidade, 0);
+        abrirModalSaida(itemPrinc.id, itemPrinc.nome, qtdTotal);
       } else {
-        showToast('Este item já tem saída registrada!', 'warning');
+        showToast('Este item já tem saída registrada ou não está em estoque!', 'warning');
       }
     } else {
       showToast('Item não encontrado pelo código: ' + codigoLido, 'error');
