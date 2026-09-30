@@ -182,6 +182,7 @@ async function loadDashboard() {
     allSetores = setores;
 
     const setoresParaOcupacao = setores.filter(s => {
+      if (!s || !s.nome) return false;
       const n = s.nome.toUpperCase();
       return !n.includes('SEGURO') && !n.includes('VENDA') && !n.includes('SOBRA');
     });
@@ -1621,139 +1622,6 @@ function hexToRgba(hex, alpha) {
   // Carregar página inicial
   navigateTo('mapa');
 })();
-
-// =====================
-// QR CODE SCANNER & SAIDA
-// =====================
-let html5QrcodeScanner;
-
-function abrirScanner() {
-  document.getElementById('modalScanner').style.display = 'flex';
-  
-  // Foca no input manual para leitores USB
-  setTimeout(() => {
-    const input = document.getElementById('manualQrInput');
-    if(input) {
-      input.value = '';
-      input.focus();
-      input.onkeypress = function(e) {
-        if(e.key === 'Enter') {
-          onScanSuccess(input.value);
-        }
-      };
-    }
-  }, 300);
-
-  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} });
-  html5QrcodeScanner.render(onScanSuccess, (error) => {});
-}
-
-function fecharScanner() {
-  document.getElementById('modalScanner').style.display = 'none';
-  if (html5QrcodeScanner) {
-    html5QrcodeScanner.clear();
-  }
-}
-
-async function onScanSuccess(decodedText) {
-  fecharScanner();
-  try {
-    let q = decodedText;
-    if(decodedText.startsWith('{')) {
-      const obj = JSON.parse(decodedText);
-      q = obj.id || obj.codigo;
-    }
-    
-    // Encode the URI component to prevent invalid URLs throwing fetch errors
-    let items = await apiFetch(`/items?search=${encodeURIComponent(q)}`);
-    let item = items.find(i => i.codigo === q || i.id === q);
-    if(!item && items.length > 0) item = items[0];
-    
-    if(item) {
-      if(item.status === 'SAIU') {
-        showToast("Este item ja saiu do estoque!", "error");
-        return;
-      }
-      closeModal('modalDetalhes');
-      document.getElementById('modalSaida').style.display = 'flex';
-      document.getElementById('modalItemNome').textContent = item.nome;
-      document.getElementById('modalItemDetails').textContent = `Cod: ${item.codigo} | Local: ${item.localizacao?.codigo || 'N/A'}`;
-      document.getElementById('modalItemId').value = item.id;
-      document.getElementById('saidaForm').reset();
-    } else {
-      showToast("Item nao encontrado no sistema.", "error");
-    }
-  } catch(e) {
-    showToast("Erro ao processar codigo: " + e.message, "error");
-  }
-}
-
-// =====================
-// PRECOS E SCRAPING
-// =====================
-function calcularSugestao() {
-  const nf = parseFloat(document.getElementById('inputValorNf').value) || 0;
-  const internet = parseFloat(document.getElementById('inputValorInternet').value) || 0;
-  let sug = 0;
-  if (internet > 0) sug = internet * 0.4;
-  else if (nf > 0) sug = nf * 0.4;
-  
-  if (sug > 0) {
-    document.getElementById('inputSugestao').value = sug.toFixed(2);
-  } else {
-    document.getElementById('inputSugestao').value = '';
-  }
-
-  const divDiferenca = document.getElementById('diferencaPrecoInfo');
-  if(divDiferenca) {
-    if(nf > 0 && internet > 0) {
-      const diff = internet - nf;
-      const perc = ((diff / nf) * 100).toFixed(1);
-      const diffText = diff >= 0 ? `+ R$ ${diff.toFixed(2).replace('.',',')} (+${perc}%)` : `- R$ ${Math.abs(diff).toFixed(2).replace('.',',')} (${perc}%)`;
-      const color = diff >= 0 ? 'var(--success)' : 'var(--danger)';
-      divDiferenca.innerHTML = `Diferença (Internet x Nota): <strong style="color:${color}">${diffText}</strong>`;
-      divDiferenca.style.display = 'block';
-    } else {
-      divDiferenca.style.display = 'none';
-    }
-  }
-}
-
-async function buscarPrecoInternet() {
-  const query = document.getElementById('inputNome').value;
-  if (!query) {
-    showToast('Preencha o nome do item primeiro', 'error');
-    return;
-  }
-  const div = document.getElementById('scrapeResults');
-  div.innerHTML = '🤖 Pesquisando na internet... aguarde.';
-  
-  try {
-    const res = await apiFetch(`/items/scrape/search?q=${encodeURIComponent(query)}`);
-    if(res.success && res.average) {
-      document.getElementById('inputValorInternet').value = res.average;
-      calcularSugestao();
-      let html = '<strong style="display:block;margin-bottom:8px">Encontrado no Buscapé:</strong>';
-      res.options.forEach(o => {
-        html += `
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px;border:1px solid var(--border);border-radius:6px">
-            <img src="${o.image || ''}" style="width:40px;height:40px;object-fit:contain;border-radius:4px;background:#fff" />
-            <div style="flex:1">
-              <a href="${o.link}" target="_blank" style="font-size:12px;color:var(--text);text-decoration:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" title="${o.title}">${o.title}</a>
-              <div style="font-weight:600;font-size:14px;color:var(--primary)">R$ ${o.price.toFixed(2).replace('.', ',')}</div>
-            </div>
-          </div>
-        `;
-      });
-      div.innerHTML = html;
-      showToast('Valor de internet sugerido!', 'success');
-    } else {
-      div.innerHTML = 'Nao foram encontrados resultados.';
-    }
-  } catch (e) {
-    div.innerHTML = 'Erro ao buscar internet: ' + e.message;
-  }
-}
 
 // =====================
 // CONTROLE DO MAPA 3D
