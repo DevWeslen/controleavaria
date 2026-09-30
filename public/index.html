@@ -484,26 +484,7 @@
     </div><!-- /page-container -->
   </main>
 
-  <!-- Modal do Leitor de QR Code -->
-  <div class="modal-overlay" id="modalScanner" style="display:none; z-index:9999;">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>Ler QR Code</h3>
-        <button class="modal-close" onclick="fecharScanner()">✕</button>
-      </div>
-      <div class="modal-body" style="text-align:center;">
-        <div id="reader" style="width: 100%; border-radius: 8px; overflow: hidden; margin-bottom:15px; border:1px solid #444;"></div>
-        <p style="color:#aaa; font-size:13px; margin:0">Aponte a câmera para a etiqueta do item.</p>
-        <div style="margin-top:15px; text-align:left;">
-          <label>Ou digite o código manualmente:</label>
-          <div style="display:flex; gap:10px; margin-top:5px;">
-            <input type="text" id="manualQrInput" class="form-input" placeholder="Ex: AV-... ou ETQ-...">
-            <button class="btn-primary" onclick="onScanSuccess(document.getElementById('manualQrInput').value)">Buscar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+
 
   <!-- Modal de Saída de Item -->
   <div class="modal-overlay" id="modalSaida" style="display:none">
@@ -613,8 +594,11 @@
       </div>
       <div class="modal-body" style="text-align: center; padding: 20px;">
         <div id="qr-reader" style="width: 100%; border: 1px solid #333; border-radius: 8px; overflow: hidden; margin-bottom: 15px;"></div>
-        <p style="font-size: 12px; color: #888;">Aponte a câmera para a etiqueta ou bipe com o leitor USB abaixo:</p>
-        <input type="text" id="leitorUsbInput" class="form-input" style="width:100%; text-align:center; font-family:monospace; letter-spacing:1px; margin-top:10px;" placeholder="Ou posicione o cursor aqui e bipe (USB)" autocomplete="off">
+        <p style="font-size: 12px; color: #888;">Aponte a câmera para a etiqueta ou digite/bipe abaixo:</p>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <input type="text" id="leitorUsbInput" class="form-input" style="width:100%; text-align:center; font-family:monospace; letter-spacing:1px;" placeholder="Ex: AV-... ou LOT-..." autocomplete="off">
+          <button class="btn-primary" onclick="const v = document.getElementById('leitorUsbInput').value.trim(); if(v) { processScan(v); document.getElementById('leitorUsbInput').value = ''; }">Buscar</button>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="fecharScanner()">Cancelar</button>
