@@ -13,17 +13,57 @@ function initSSE() {
       const item = JSON.parse(e.data);
       console.log('Novo item via SSE:', item);
       
-      // Emitir som (Beep) usando Web Audio API
-      playBeep();
+      // Tentar tocar o som
+      if (typeof window.playSuccessBeep === 'function') {
+        window.playSuccessBeep();
+      } else {
+        playBeep();
+      }
 
-      // Exibir card toast
-      showToast(`NOVO ITEM: ${item.nome} (${item.codigo})\nSetor: ${item.setor || 'Sem setor'}`, 'info', 5000);
+      // Se o usuário estiver na tela do mapa (ex: TV), faz a animação e mostra o modal
+      if (typeof currentPage !== 'undefined' && currentPage === 'mapa' && item.localizacao) {
+        
+        // Foca no item no mapa
+        window.highlightedLoc = item.localizacao;
+        if (typeof drawablePaletes !== 'undefined') {
+          const palete = drawablePaletes.find(p => 
+            p.id === item.localizacao || 
+            (p.loc && p.loc.codigo === item.localizacao) ||
+            (p.setor && p.setor.nome === item.localizacao)
+          );
 
-      // Se o usuário estiver na tela do mapa e o item tiver setor, dar zoom
-      if (typeof currentPage !== 'undefined' && currentPage === 'mapa' && item.setor) {
-         if (typeof zoomToSector === 'function') {
-            zoomToSector(item.setor);
-         }
+          if(palete && typeof animateCamera === 'function') {
+            animateCamera(45, 160, 2.5, palete.x, palete.z);
+          } else if(typeof drawWarehouse === 'function') {
+            drawWarehouse();
+          }
+        }
+
+        // Mostra o modal
+        setTimeout(() => {
+          const details = document.getElementById('modalRegistrationDetails');
+          const modal = document.getElementById('modalRegistrationSuccess');
+          if(details && modal) {
+            details.innerHTML = `
+              <strong style="color:white;font-size:16px;">${item.nome}</strong><br>
+              <span style="color:var(--primary);">Código: ${item.codigo}</span><br>
+              Localização: ${item.localizacao || '—'}<br>
+              Quantidade: ${item.quantidade}
+            `;
+            modal.style.display = 'flex';
+          }
+        }, 600);
+
+        // Fecha automaticamente o modal depois de 8 segundos (modo TV)
+        setTimeout(() => {
+          if (typeof window.closeRegistrationModal === 'function') {
+            window.closeRegistrationModal();
+          }
+        }, 8600);
+
+      } else {
+        // Exibir card toast normal se não estiver no mapa
+        showToast(`NOVO ITEM: ${item.nome} (${item.codigo})\nLocal: ${item.localizacao || 'N/A'}`, 'info', 5000);
       }
 
       // Atualizar lista de estoque se estiver nela
