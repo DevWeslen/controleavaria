@@ -1831,45 +1831,74 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================
 // ANIMAÇÃO PERSONAGEM
 // =====================
-let charPos = { x: -8, z: -40, dir: 1, timer: 0 };
+let charPos = { x: -35, z: 28, dir: 1, timer: 0 };
 
 function updateCharacter() {
-  charPos.z += charPos.dir * 0.15;
-  charPos.timer += 0.15;
-  if (charPos.z > 20) charPos.dir = -1;
-  if (charPos.z < -40) charPos.dir = 1;
+  charPos.x += charPos.dir * 0.15;
+  charPos.timer += 0.2;
+  if (charPos.x > 40) charPos.dir = -1;
+  if (charPos.x < -35) charPos.dir = 1;
 }
 
 function drawCharacter() {
   if (window.currentViewMode === 'aerea') return;
   const ctx = mapaCtx;
+  const scale = window.mapaScale || 1;
   const bounce = Math.abs(Math.sin(charPos.timer)) * 0.4;
   
-  const pBottom = project(charPos.x, bounce, charPos.z);
-  const pTop = project(charPos.x, 1.8 + bounce, charPos.z);
-  const pHead = project(charPos.x, 2.5 + bounce, charPos.z);
+  // Sombra
+  const pS = project(charPos.x, 0, charPos.z);
+  ctx.beginPath();
+  ctx.ellipse(pS.x, pS.y, 4*scale, 2*scale, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fill();
+
+  // Projetar os pontos no 3D
+  // Z position changes the drawing order, but since we draw it after pallets, it's always on top of the street
+  const pBox = project(charPos.x + (charPos.dir * 0.5), 1 + bounce, charPos.z);
+  const pBody = project(charPos.x, 1.5 + bounce, charPos.z);
+  const pHead = project(charPos.x, 3.5 + bounce, charPos.z);
+
+  // Se ele está andando pra direita (dir=1), a caixa fica na frente dele
   
   // Corpo
   ctx.beginPath();
-  ctx.moveTo(pBottom.x, pBottom.y);
-  ctx.lineTo(pTop.x, pTop.y);
-  ctx.strokeStyle = '#2980B9'; 
-  ctx.lineWidth = 5 * (window.mapaScale || 1);
-  ctx.lineCap = 'round';
+  ctx.rect(pBody.x - 2.5*scale, pBody.y - 3*scale, 5*scale, 6*scale);
+  ctx.fillStyle = '#2980B9'; // Uniforme azul
+  ctx.fill();
+  ctx.strokeStyle = '#1A5276';
+  ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Cabeça
+  // Cabeca (Capacete Amarelo)
   ctx.beginPath();
-  ctx.arc(pHead.x, pHead.y, 1.5 * (window.mapaScale || 1), 0, Math.PI * 2);
-  ctx.fillStyle = '#F1C40F';
+  ctx.arc(pHead.x, pHead.y, 2.5*scale, 0, Math.PI*2);
+  ctx.fillStyle = '#F1C40F'; 
+  ctx.fill();
+  ctx.strokeStyle = '#B7950B';
+  ctx.stroke();
+  
+  // Olho / Visor
+  const eyeOffset = charPos.dir === 1 ? 1.5 : -1.5;
+  ctx.beginPath();
+  ctx.arc(pHead.x + (eyeOffset * scale), pHead.y - 0.5*scale, 0.8*scale, 0, Math.PI*2);
+  ctx.fillStyle = '#FFF';
   ctx.fill();
 
   // Caixa
-  const pBox = project(charPos.x, 1.2 + bounce, charPos.z + (charPos.dir * 0.6));
   ctx.beginPath();
-  ctx.arc(pBox.x, pBox.y, 1.8 * (window.mapaScale || 1), 0, Math.PI * 2);
-  ctx.fillStyle = '#D35400';
+  ctx.rect(pBox.x - 3*scale, pBox.y - 3*scale, 6*scale, 6*scale);
+  ctx.fillStyle = '#D35400'; 
   ctx.fill();
+  ctx.strokeStyle = '#873600';
+  ctx.stroke();
+
+  // Fita da caixa
+  ctx.beginPath();
+  ctx.moveTo(pBox.x - 3*scale, pBox.y);
+  ctx.lineTo(pBox.x + 3*scale, pBox.y);
+  ctx.strokeStyle = '#FAD7A1';
+  ctx.stroke();
 }
 
 let isAnimRunning = false;
@@ -1883,7 +1912,7 @@ function startAnimLoop() {
     }
     requestAnimationFrame(loop);
   }
-  loop();
+  requestAnimationFrame(loop);
 }
 
 // Inicia o loop de animação
