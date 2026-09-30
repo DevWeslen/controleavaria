@@ -100,10 +100,13 @@ async function carregarLocalizacoesTransferencia() {
 }
 
 function abrirTransferenciaDoModal() {
-  // Pegar ID do item que já está no modalDetalhes
-  const itemId = document.getElementById('modalItemIdDetalhe').value;
-  const nome = document.getElementById('modalItemNomeDetalhe').value;
-  const setorAtual = document.getElementById('modalItemSetorDetalhe').value;
+  if (typeof currentItemForModal === 'undefined' || !currentItemForModal) {
+    showToast('Erro: Item não encontrado no contexto do modal.', 'error');
+    return;
+  }
+  const itemId = currentItemForModal.id;
+  const nome = currentItemForModal.nome;
+  const setorAtual = currentItemForModal.localizacao?.setor?.nome || 'N/A';
 
   document.getElementById('transItemId').value = itemId;
   document.getElementById('transItemNome').textContent = nome;
