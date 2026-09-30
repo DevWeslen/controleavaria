@@ -569,8 +569,7 @@ function drawWarehouse() {
 
     // LADO DIREITO DA TELA (X = -35 a -10)
     {x: -35, z: -40, w: 25, d: 35, text: 'Seguro', cor: '#3498DB'},
-    {x: -35, z: -2, w: 25, d: 12, text: 'Automotivo', cor: '#9B59B6'},
-    {x: -35, z: 13, w: 25, d: 12, text: 'Móveis', cor: '#34495E'},
+    {x: -35, z: 5, w: 25, d: 20, text: 'Lotes Fechados', cor: '#F59E0B'},
 
     // ENTRADA (Frente total)
     {x: -35, z: 32, w: 81, d: 12, text: 'ENTRADA / RECEBIMENTO', cor: '#8E44AD'}, 
@@ -655,8 +654,7 @@ function drawWarehouse() {
   
   // --- LADO DIREITO DA TELA ---
   addFloorBlock('SEG-CHAO', 'Seguro', '#3498DB', -35, -40, 25, 35, 7, 5);
-  addFloorBlock('AUT-CHAO', 'Automotivo', '#9B59B6', -35, -2, 25, 12, 2, 5);
-  addFloorBlock('MOV-CHAO', 'Moveis', '#34495E', -35, 13, 25, 12, 2, 5);
+  addFloorBlock('LOTES-GERAL', 'Lotes Fechados', '#F59E0B', -35, -2, 25, 27, 4, 5);
 
   for(const l of labels) {
     drawSetorFloor(l.x, l.z, l.w, l.d, l.cor, l.text);
