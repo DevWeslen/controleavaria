@@ -160,7 +160,21 @@ async function loadDashboard() {
 
     document.getElementById('statTotal').textContent = stats.total;
     document.getElementById('statEstoque').textContent = stats.emEstoque;
-    document.getElementById('statSaiu').textContent = stats.saidos;
+    
+    // Format saidas breakdown
+    let saidasHtml = `${stats.saidos}`;
+    if (stats.saidasAgrupadas && stats.saidasAgrupadas.length > 0) {
+      const breakdown = stats.saidasAgrupadas.map(g => {
+        const motivo = g.motivo || 'Outros';
+        const qtd = g._sum.quantidade || 0;
+        return `<div style="font-size:10px; margin-top:4px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.1)">
+          <span style="color:#aaa">${motivo}</span>
+          <strong>${qtd}</strong>
+        </div>`;
+      }).join('');
+      saidasHtml += `<div style="margin-top:8px; width:100%; display:block">${breakdown}</div>`;
+    }
+    document.getElementById('statSaiu').innerHTML = saidasHtml;
 
     // Barras de ocupação por setor
     const ocupacaoEl = document.getElementById('setoresOcupacao');
@@ -996,10 +1010,31 @@ function showPaletePanel(palete) {
   const itens = palete.loc.itens || [];
   const emEstoque = itens.filter(i => i.status === 'ESTOQUE');
 
+  // Sector KPIs
+  const sectorPaletes = drawablePaletes.filter(p => p.setor?.nome === palete.setor?.nome);
+  const totalSectorItens = sectorPaletes.reduce((sum, p) => sum + (p.totalItens || 0), 0);
+  const totalSectorCap = sectorPaletes.reduce((sum, p) => sum + (p.loc?.capacidade || 10), 0);
+  const sectorOccupancy = totalSectorCap > 0 ? Math.round((totalSectorItens / totalSectorCap) * 100) : 0;
+
+  const kpisHtml = `
+    <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; margin-bottom:15px; border-left: 3px solid ${palete.cor}">
+      <div style="font-size:11px; color:#aaa; margin-bottom:5px; text-transform:uppercase">📊 KPIs do Setor: ${palete.setor?.nome}</div>
+      <div style="display:flex; justify-content:space-between; font-size:12px;">
+        <div>Itens no setor: <strong>${totalSectorItens}</strong></div>
+        <div>Ocupação: <strong>${sectorOccupancy}%</strong></div>
+      </div>
+      <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; margin-top:6px;">
+        <div style="width:${sectorOccupancy}%; height:100%; background:${palete.cor}; border-radius:2px;"></div>
+      </div>
+    </div>
+  `;
+
+  let contentHtml = kpisHtml;
+
   if (!emEstoque.length) {
-    body.innerHTML = '<div class="empty-state"><p>Nenhum item neste palete</p></div>';
+    contentHtml += '<div class="empty-state"><p>Nenhum item neste palete</p></div>';
   } else {
-    body.innerHTML = emEstoque.map(item => `
+    contentHtml += emEstoque.map(item => `
       <div class="panel-item-row">
         <div>
           <div class="panel-item-name">${item.nome}</div>
@@ -1011,6 +1046,7 @@ function showPaletePanel(palete) {
     `).join('');
   }
 
+  body.innerHTML = contentHtml;
   panel.style.display = 'block';
 }
 
@@ -1675,6 +1711,62 @@ function mudarVisaoMapa(viewMode) {
     window.usePerspective = true;
   }
   drawWarehouse();
+}
+
+// =====================
+// PREÇOS E SUGESTÃO
+// =====================
+function calcularSugestao() {
+  const vNf = parseFloat(document.getElementById('inputValorNf').value) || 0;
+  const vInt = parseFloat(document.getElementById('inputValorInternet').value) || 0;
+  
+  const baseValue = vInt > 0 ? vInt : vNf;
+  const sugestao = baseValue * 0.40;
+  
+  document.getElementById('inputSugestao').value = sugestao > 0 ? sugestao.toFixed(2) : '';
+
+  // Calcular Diferença
+  const divDiff = document.getElementById('diferencaPrecoInfo');
+  if (vNf > 0 && vInt > 0) {
+    const diff = vInt - vNf;
+    const perc = ((diff / vNf) * 100).toFixed(1);
+    const cor = diff >= 0 ? '#4ADE80' : '#EF4444'; // verde se internet > NF, vermelho se NF > internet
+    const texto = diff >= 0 
+        ? `Valor na internet é <strong>R$ ${diff.toFixed(2).replace('.',',')} (+${perc}%) MAIOR</strong> que a Nota Fiscal.`
+        : `Valor na internet é <strong style="color:#EF4444">R$ ${Math.abs(diff).toFixed(2).replace('.',',')} (${perc}%) MENOR</strong> que a Nota Fiscal.`;
+    
+    divDiff.style.display = 'block';
+    divDiff.innerHTML = `<span style="color:${cor}">${texto}</span>`;
+  } else {
+    divDiff.style.display = 'none';
+  }
+}
+
+async function buscarPrecoInternet() {
+  const nome = document.getElementById('inputNome').value.trim();
+  if(!nome) {
+    showToast('Preencha o nome do item primeiro para buscar o preço', 'warning');
+    return;
+  }
+  
+  const divRes = document.getElementById('scrapeResults');
+  divRes.innerHTML = '🤖 Robô pesquisando no Mercado Livre...';
+  
+  try {
+    const res = await apiFetch(`/items/scrape/search?q=${encodeURIComponent(nome)}`);
+    if(res && res.price) {
+      document.getElementById('inputValorInternet').value = res.price;
+      divRes.innerHTML = `✅ Encontrado no Mercado Livre: R$ ${res.price.toFixed(2).replace('.',',')} <a href="${res.url}" target="_blank" style="color:#4A90D9;margin-left:10px;text-decoration:none">🛒 Ver anúncio</a>`;
+      calcularSugestao();
+      showToast('Preço encontrado na internet!', 'success');
+    } else {
+      divRes.innerHTML = '❌ Não foi possível encontrar um preço exato.';
+      showToast('Não encontrou preço', 'warning');
+    }
+  } catch(e) {
+    divRes.innerHTML = '❌ Erro ao consultar robô de preços.';
+    showToast('Erro no robô', 'error');
+  }
 }
 
 

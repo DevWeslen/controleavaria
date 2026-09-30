@@ -193,12 +193,19 @@ router.get('/stats/dashboard', async (req, res) => {
       include: { item: true }
     });
 
+    const saidasAgrupadas = await prisma.movimentacao.groupBy({
+      by: ['motivo'],
+      where: { tipo: 'SAIDA' },
+      _sum: { quantidade: true }
+    });
+
     res.json({
       total,
       emEstoque,
       saidos,
       porSetor,
-      ultimasMovimentacoes
+      ultimasMovimentacoes,
+      saidasAgrupadas
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar estatísticas', details: error.message });
