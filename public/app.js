@@ -1708,7 +1708,12 @@ async function buscarPrecoInternet() {
 // =====================
 let html5QrcodeScanner = null;
 
-function abrirScanner() {
+let scannerContext = 'saida';
+let scannerContextId = null;
+
+function abrirScanner(context = 'saida', id = null) {
+  scannerContext = context;
+  scannerContextId = id;
   document.getElementById('modalScanner').style.display = 'flex';
   
   // Foca no input USB para leitores de pistola
@@ -1740,6 +1745,13 @@ function fecharScanner() {
 
 async function processScan(codigoLido) {
   fecharScanner();
+  
+  if (scannerContext === 'lote' && scannerContextId) {
+    if (typeof processScanParaLote === 'function') {
+      return processScanParaLote(scannerContextId, codigoLido);
+    }
+  }
+
   showToast('Buscando: ' + codigoLido, 'info');
   
   try {
@@ -1751,7 +1763,7 @@ async function processScan(codigoLido) {
           if (confirm(`Lote encontrado: ${lote.nome}\nPossui ${lote.itens.length} itens em estoque.\nDeseja dar saída em TODOS os itens deste lote agora?`)) {
              await apiFetch(`/lotes/${lote.id}/saida`, {
                method: 'POST',
-               body: JSON.stringify({ motivo: 'LOTE_SAIDA', destino: 'Leilão/Transferência' })
+               body: { motivo: 'LOTE_SAIDA', destino: 'Leilão/Transferência' }
              });
              showToast('Saída em massa registrada com sucesso!', 'success');
              if(currentPage === 'dashboard') loadDashboard();

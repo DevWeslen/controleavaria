@@ -136,7 +136,7 @@ async function confirmarTransferencia() {
 
     await apiFetch(`/items/${itemId}/transferir`, {
       method: 'POST',
-      body: JSON.stringify({ localizacaoId, usuario, observacao })
+      body: { localizacaoId, usuario, observacao }
     });
 
     showToast('Item transferido com sucesso!', 'success');
@@ -218,7 +218,7 @@ async function criarLote() {
   try {
     await apiFetch('/lotes', {
       method: 'POST',
-      body: JSON.stringify({ nome, usuario, observacao })
+      body: { nome, usuario, observacao }
     });
     showToast('Lote criado com sucesso!', 'success');
     document.getElementById('loteNome').value = '';
@@ -231,18 +231,26 @@ async function criarLote() {
 }
 
 async function promptAdicionarItemLote(loteId) {
-  const codigo = prompt("Digite ou scaneie o código do item (ex: AV-...):");
+  if (typeof abrirScanner === 'function') {
+    abrirScanner('lote', loteId);
+  } else {
+    showToast('Scanner indisponível', 'error');
+  }
+}
+
+async function processScanParaLote(loteId, codigo) {
   if(!codigo) return;
+  showToast('Adicionando ' + codigo + ' ao lote...', 'info');
 
   try {
     await apiFetch(`/lotes/${loteId}/itens`, {
       method: 'POST',
-      body: JSON.stringify({ itemCodigo: codigo.trim() })
+      body: { itemCodigo: codigo.trim() }
     });
-    showToast('Item adicionado ao lote!', 'success');
+    showToast('Item adicionado ao lote com sucesso!', 'success');
     loadLotes();
   } catch(e) {
-    showToast('Erro ao adicionar: ' + e.message, 'error');
+    showToast('Erro ao adicionar item: ' + e.message, 'error');
   }
 }
 
@@ -250,7 +258,7 @@ async function fecharLote(loteId) {
   if(!confirm("Tem certeza que deseja fechar este lote? Os itens serão movidos para 'Lotes Fechados'.")) return;
 
   try {
-    await apiFetch(`/lotes/${loteId}/fechar`, { method: 'POST', body: JSON.stringify({}) });
+    await apiFetch(`/lotes/${loteId}/fechar`, { method: 'POST', body: {} });
     showToast('Lote fechado com sucesso!', 'success');
     loadLotes();
   } catch(e) {
