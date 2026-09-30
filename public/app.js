@@ -604,6 +604,9 @@ function drawWarehouse() {
   }
 
   const dbItemsDrawn = {};
+  
+  // Limpar os paletes desenhados da última renderização! (MUITO IMPORTANTE PARA ANIMAÇÃO)
+  drawablePaletes = [];
 
   for (const l of layout) {
     let ocupado = false;
