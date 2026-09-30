@@ -341,7 +341,7 @@ async function buscarNoMapa() {
       
       // Abre o painel lateral automaticamente!
       setTimeout(() => {
-        openMapaPanel(palete.loc.codigo, palete.setor?.nome || 'Setor', palete.totalItens);
+        showPaletePanel(palete);
       }, 500);
     } else {
       drawWarehouse();
