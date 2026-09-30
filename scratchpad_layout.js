@@ -3,8 +3,8 @@ const layout = [];
 function addBlock(prefix, name, color, startX, startZ, rows, cols, palletsPerRow) {
   let count = 1;
   // A block is rows * cols, but drawn with spaces
-  for(let r=0; r<rows; r++) {
-    for(let c=0; c<cols; c++) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       layout.push({
         id: `${prefix}-P${String(count).padStart(2, '0')}`,
         label: name,
