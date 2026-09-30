@@ -1057,9 +1057,6 @@ function showPaletePanel(palete) {
   // Sector KPIs
   const sectorPaletes = drawablePaletes.filter(p => p.setor?.nome === palete.setor?.nome);
   const totalSectorItens = sectorPaletes.reduce((sum, p) => sum + (p.totalItens || 0), 0);
-  const totalSectorCap = sectorPaletes.reduce((sum, p) => sum + (p.loc?.capacidade || 10), 0);
-  const sectorOccupancy = totalSectorCap > 0 ? Math.round((totalSectorItens / totalSectorCap) * 100) : 0;
-
   let sectorTotalNf = 0;
   let sectorTotalInternet = 0;
   let sectorTotalSugestao = 0;
@@ -1085,15 +1082,11 @@ function showPaletePanel(palete) {
       <div style="font-size:11px; color:#aaa; margin-bottom:5px; text-transform:uppercase">📊 KPIs do Setor: ${palete.setor?.nome}</div>
       <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px">
         <div>Itens no setor: <strong>${totalSectorItens}</strong></div>
-        <div>Ocupação: <strong>${sectorOccupancy}%</strong></div>
       </div>
       <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
         <div style="display:flex; justify-content:space-between;"><span>Valor NF Total:</span> <strong>${fNf}</strong></div>
         <div style="display:flex; justify-content:space-between;"><span>Valor Internet Total:</span> <strong>${fInt}</strong></div>
         <div style="display:flex; justify-content:space-between; color:#4A90D9"><span>Venda (Lucro Liq 40%):</span> <strong>${fSug}</strong></div>
-      </div>
-      <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; margin-top:8px;">
-        <div style="width:${sectorOccupancy}%; height:100%; background:${palete.cor}; border-radius:2px;"></div>
       </div>
     </div>
   `;
