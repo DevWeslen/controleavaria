@@ -569,7 +569,7 @@ function drawWarehouse() {
 
     // LADO DIREITO DA TELA (X = -35 a -10)
     {x: -35, z: -40, w: 25, d: 35, text: 'Seguro', cor: '#3498DB'},
-    {x: -35, z: 5, w: 25, d: 20, text: 'Lotes Fechados', cor: '#F59E0B'},
+    {x: -35, z: -2, w: 25, d: 27, text: 'Lotes Fechados', cor: '#F59E0B'},
 
     // ENTRADA (Frente total)
     {x: -35, z: 32, w: 81, d: 12, text: 'ENTRADA / RECEBIMENTO', cor: '#8E44AD'}, 
@@ -730,6 +730,8 @@ function drawWarehouse() {
   if (window.currentViewMode !== 'aerea') {
     drawGaiolaWalls(false);
     drawPortaPalletWalls(false);
+    
+    if (typeof drawCharacter === 'function') drawCharacter();
   }
 }
 
@@ -774,7 +776,6 @@ function drawStreets() {
     {x: 10, z: -8, w: 36, d: 3},     // Small horizontal left 2 (Below ZR/PJ)
     {x: 10, z: 7, w: 36, d: 3},      // Small horizontal left 3 (Below Tratativa/Debito)
     {x: -35, z: -5, w: 25, d: 3},    // Small horizontal right 1 (Inside Seguro - visual break)
-    {x: -35, z: 10, w: 25, d: 3},    // Small horizontal right 2 (Below Automotivo)
     {x: -40, z: 25, w: 90, d: 7},    // Main Horizontal (Separating Entrada from rest)
   ];
 
@@ -1827,4 +1828,64 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// =====================
+// ANIMAÇÃO PERSONAGEM
+// =====================
+let charPos = { x: -8, z: -40, dir: 1, timer: 0 };
+
+function updateCharacter() {
+  charPos.z += charPos.dir * 0.15;
+  charPos.timer += 0.15;
+  if (charPos.z > 20) charPos.dir = -1;
+  if (charPos.z < -40) charPos.dir = 1;
+}
+
+function drawCharacter() {
+  if (window.currentViewMode === 'aerea') return;
+  const ctx = mapaCtx;
+  const bounce = Math.abs(Math.sin(charPos.timer)) * 0.4;
+  
+  const pBottom = project(charPos.x, bounce, charPos.z);
+  const pTop = project(charPos.x, 1.8 + bounce, charPos.z);
+  const pHead = project(charPos.x, 2.5 + bounce, charPos.z);
+  
+  // Corpo
+  ctx.beginPath();
+  ctx.moveTo(pBottom.x, pBottom.y);
+  ctx.lineTo(pTop.x, pTop.y);
+  ctx.strokeStyle = '#2980B9'; 
+  ctx.lineWidth = 5 * (window.mapaScale || 1);
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Cabeça
+  ctx.beginPath();
+  ctx.arc(pHead.x, pHead.y, 1.5 * (window.mapaScale || 1), 0, Math.PI * 2);
+  ctx.fillStyle = '#F1C40F';
+  ctx.fill();
+
+  // Caixa
+  const pBox = project(charPos.x, 1.2 + bounce, charPos.z + (charPos.dir * 0.6));
+  ctx.beginPath();
+  ctx.arc(pBox.x, pBox.y, 1.8 * (window.mapaScale || 1), 0, Math.PI * 2);
+  ctx.fillStyle = '#D35400';
+  ctx.fill();
+}
+
+let isAnimRunning = false;
+function startAnimLoop() {
+  if (isAnimRunning) return;
+  isAnimRunning = true;
+  function loop() {
+    updateCharacter();
+    if (currentPage === 'mapa') {
+      drawWarehouse();
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// Inicia o loop de animação
+startAnimLoop();
 
