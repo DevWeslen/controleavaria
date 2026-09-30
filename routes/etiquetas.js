@@ -39,7 +39,7 @@ router.post('/gerar', async (req, res) => {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      doc.addPage({ size: [larguraPt, alturaPt] });
+      doc.addPage({ size: [larguraPt, alturaPt], margin: 0 });
 
       // Background
       doc.rect(0, 0, larguraPt, alturaPt).fill('#FFFFFF');

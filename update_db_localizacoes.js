@@ -13,6 +13,7 @@ async function updateLocations() {
     { nome: 'Proc. Judicial', cor: '#1ABC9C' },
     { nome: 'Tratativa Comercial', cor: '#F1C40F' },
     { nome: 'Débito', cor: '#E67E22' },
+    { nome: 'Novas Vendas', cor: '#27AE60' },
     { nome: 'Seguro', cor: '#3498DB' },
     { nome: 'Automotivo', cor: '#9B59B6' },
     { nome: 'Móveis', cor: '#34495E' }
