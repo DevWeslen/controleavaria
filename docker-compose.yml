@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: avarias_pass
       POSTGRES_DB: avarias_db
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - avarias_data:/var/lib/postgresql/data
 
