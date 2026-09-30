@@ -56,13 +56,13 @@ router.post('/gerar', async (req, res) => {
 
       // Nome do setor no header (maior)
       doc.fillColor('#FFFFFF')
-        .fontSize(mmToPt(4.5))
+        .fontSize(mmToPt(4.0)) // Reduzido ligeiramente para evitar quebra de linha
         .font('Helvetica-Bold')
         .text(
           item.localizacao?.setor?.nome || 'SEM SETOR',
           padding,
           2 + mmToPt(2),
-          { width: larguraPt * 0.45, height: headerAltura }
+          { width: larguraPt * 0.60 } // Aumentada a largura disponível
         );
 
       // Identificador "Torre de Controle"
@@ -72,8 +72,8 @@ router.post('/gerar', async (req, res) => {
         .text(
           'TORRE DE CONTROLE',
           padding,
-          2 + mmToPt(9),
-          { width: larguraPt * 0.45 }
+          2 + mmToPt(11), // Movido mais para baixo
+          { width: larguraPt * 0.60 }
         );
 
       // Logo da Princesa dos Campos (canto direito do header)
