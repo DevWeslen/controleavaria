@@ -41,77 +41,67 @@ router.post('/gerar', async (req, res) => {
       const item = items[i];
       doc.addPage({ size: [larguraPt, alturaPt], margin: 0 });
 
-      // Background
+      // ============================================
+      // BACKGROUND & BORDER
+      // ============================================
       doc.rect(0, 0, larguraPt, alturaPt).fill('#FFFFFF');
-      
-      // Borda
-      doc.rect(2, 2, larguraPt - 4, alturaPt - 4)
-        .lineWidth(1)
-        .stroke('#333333');
+      doc.rect(2, 2, larguraPt - 4, alturaPt - 4).lineWidth(1).stroke('#DDDDDD');
 
-      // Header colorido por setor — altura proporcional a 100mm
+      // ============================================
+      // HEADER BAR
+      // ============================================
       const setorCor = item.localizacao?.setor?.cor || '#4A90D9';
-      const headerAltura = mmToPt(16); // Aumentado um pouco para caber logo e texto
-      doc.rect(2, 2, larguraPt - 4, headerAltura).fill(setorCor);
-
-      // Nome do setor no header (maior)
+      const headerHeight = mmToPt(11);
+      // Fundo do header (ocupando largura total, menos a borda)
+      doc.rect(2, 2, larguraPt - 4, headerHeight).fill(setorCor);
+      
+      // Nome do setor (Alinhado à esquerda)
       doc.fillColor('#FFFFFF')
-        .fontSize(mmToPt(4.0)) // Reduzido ligeiramente para evitar quebra de linha
+        .fontSize(mmToPt(4.0))
         .font('Helvetica-Bold')
         .text(
-          item.localizacao?.setor?.nome || 'SEM SETOR',
+          (item.localizacao?.setor?.nome || 'SEM SETOR').toUpperCase(),
           padding,
-          2 + mmToPt(2),
-          { width: larguraPt * 0.60 } // Aumentada a largura disponível
+          2 + mmToPt(3.5),
+          { width: larguraPt - 2 * padding, height: headerHeight, align: 'left' }
         );
 
-      // Identificador "Torre de Controle"
-      doc.fillColor('#FFFFFF')
-        .fontSize(mmToPt(3.5))
-        .font('Helvetica-Bold')
-        .text(
-          'TORRE DE CONTROLE',
-          padding,
-          2 + mmToPt(11), // Movido mais para baixo
-          { width: larguraPt * 0.60 }
-        );
-
-      // Logo da Princesa dos Campos (canto direito do header)
+      // Logo da Princesa dos Campos (canto direito do header, se desejar manter)
       try {
         const logoPath = require('path').join(__dirname, '../public/logo.png');
-        doc.image(logoPath, larguraPt - mmToPt(25) - padding, 2 + mmToPt(2), { height: mmToPt(12) });
+        doc.image(logoPath, larguraPt - mmToPt(25) - padding, 2 + mmToPt(1.5), { height: mmToPt(8) });
       } catch (e) {
-        // Se a logo não existir ou falhar, coloca apenas a data
-        console.error("Erro ao carregar logo:", e.message);
+        // ignora erro da logo
       }
 
-      // Corpo da etiqueta — com espaço aproveitado na vertical
-      const bodyTop  = 2 + headerAltura + mmToPt(3);
+      // ============================================
+      // CORPO (QR CODE + INFORMAÇÕES)
+      // ============================================
+      const bodyTop = 2 + headerHeight + mmToPt(6);
       const bodyLeft = padding;
-      const qrSize   = mmToPt(32);   // QR maior: 32mm
-      const textAreaLeft  = bodyLeft + qrSize + mmToPt(4);
-      const textAreaWidth = larguraPt - textAreaLeft - padding;
+      
+      const qrSize = mmToPt(34); // ~96px proporcionais
+      const textLeft = bodyLeft + qrSize + mmToPt(5);
+      const textWidth = larguraPt - textLeft - padding;
 
-      // Gerar QR Code com as informações do item
+      // 1. QR Code
       const qrData = JSON.stringify({
         id: item.id,
         codigo: item.codigo,
         nome: item.nome,
         local: item.localizacao?.codigo || '',
       });
-      
       const qrBuffer = await QRCode.toBuffer(qrData, {
         width: Math.round(qrSize),
         margin: 1,
         color: { dark: '#000000', light: '#FFFFFF' }
       });
-
       doc.image(qrBuffer, bodyLeft, bodyTop, { width: qrSize, height: qrSize });
 
-      // Código abaixo do QR
-      doc.fillColor('#666666')
-        .fontSize(mmToPt(2.4))
-        .font('Helvetica')
+      // Código do item embaixo do QR Code (fonte mono/pequena)
+      doc.fillColor('#888888')
+        .fontSize(mmToPt(2.5))
+        .font('Courier')
         .text(
           item.codigo,
           bodyLeft,
@@ -119,78 +109,80 @@ router.post('/gerar', async (req, res) => {
           { width: qrSize, align: 'center' }
         );
 
-      // Informações do item — fonte maior aproveitando 100mm
+      // 2. Informações do Item (Lado Direito)
+      // Nome do Item
       doc.fillColor('#111111')
         .fontSize(mmToPt(4.5))
         .font('Helvetica-Bold')
         .text(
           item.nome,
-          textAreaLeft,
+          textLeft,
           bodyTop,
-          { width: textAreaWidth, height: mmToPt(14), lineBreak: true }
+          { width: textWidth, height: mmToPt(12), lineBreak: true }
         );
 
-      doc.fillColor('#333333')
-        .fontSize(mmToPt(3.2))
-        .font('Helvetica-Bold')
-        .text(
-          `Cód: `,
-          textAreaLeft,
-          bodyTop + mmToPt(15),
-          { continued: true, width: textAreaWidth }
-        )
-        .font('Helvetica')
-        .text(item.codigo);
+      let currentTextY = doc.y + mmToPt(2); // Posição atual após o nome
 
-      doc.fillColor('#444444')
-        .fontSize(mmToPt(3.2))
-        .font('Helvetica')
-        .text(
-          `Local: ${item.localizacao?.codigo || 'N/A'}`,
-          textAreaLeft,
-          bodyTop + mmToPt(20),
-          { width: textAreaWidth }
-        );
+      // Função auxiliar para os campos
+      const drawField = (label, value) => {
+        doc.fillColor('#555555').fontSize(mmToPt(3.2)).font('Helvetica-Bold')
+           .text(`${label}: `, textLeft, currentTextY, { continued: true })
+           .font('Helvetica').text(value);
+        currentTextY = doc.y + mmToPt(1);
+      };
 
-      doc.text(
-        `Qtd: ${item.quantidade}`,
-        textAreaLeft,
-        bodyTop + mmToPt(25),
-        { width: textAreaWidth }
-      );
+      drawField('Cód', item.codigo);
+      drawField('Local', item.localizacao?.codigo || 'N/A');
+      drawField('Qtd', item.quantidade);
+      drawField('Data', new Date(item.createdAt).toLocaleDateString('pt-BR'));
 
+      // ============================================
+      // CAIXA DE AVARIA (Abaixo do QR Code e Info)
+      // ============================================
+      let maxBodyY = Math.max(bodyTop + qrSize + mmToPt(4), currentTextY);
+      
       if (item.motivoAvaria) {
+        const avariaY = maxBodyY + mmToPt(2);
+        const avariaHeight = mmToPt(6);
+        // Fundo vermelho claro (#fff0f0)
+        doc.rect(bodyLeft, avariaY, larguraPt - 2 * padding, avariaHeight).fill('#FFF0F0');
+        
+        // Texto da avaria
         doc.fillColor('#CC3333')
-          .fontSize(mmToPt(3))
+          .fontSize(mmToPt(3.0))
           .font('Helvetica-Bold')
           .text(
             `⚠ ${item.motivoAvaria}`,
-            bodyLeft,
-            bodyTop + qrSize + mmToPt(8),
-            { width: larguraPt - 2 * padding }
+            bodyLeft + mmToPt(2),
+            avariaY + mmToPt(1.5),
+            { width: larguraPt - 2 * padding - mmToPt(4) }
           );
       }
 
-      // Rodapé
-      const footerTop = alturaPt - mmToPt(10);
-      doc.moveTo(2, footerTop).lineTo(larguraPt - 2, footerTop).stroke('#CCCCCC');
+      // ============================================
+      // FOOTER
+      // ============================================
+      const footerTop = alturaPt - mmToPt(14);
+      
+      // Linha superior do footer
+      doc.moveTo(padding, footerTop).lineTo(larguraPt - padding, footerTop).lineWidth(1).stroke('#EEEEEE');
 
-      doc.fillColor('#555555')
-        .fontSize(mmToPt(3))
+      doc.fillColor('#888888')
+        .fontSize(mmToPt(3.0))
         .font('Helvetica')
         .text(
           `Data de entrada: ${new Date(item.createdAt).toLocaleDateString('pt-BR')}`,
-          bodyLeft,
-          footerTop + mmToPt(2),
-          { width: larguraPt - 2 * padding, align: 'left' }
+          padding,
+          footerTop + mmToPt(3),
+          { width: larguraPt - 2 * padding, align: 'center' }
         );
 
-      doc.fillColor('#888888')
-        .fontSize(mmToPt(2.5))
+      doc.fillColor('#AAAAAA')
+        .fontSize(mmToPt(2.8))
         .text(
-          'Torre de Controle — Princesa dos Campos',
-          bodyLeft,
-          footerTop + mmToPt(6),
+          'AvariasControl — Princesa dos Campos',
+          padding,
+          footerTop + mmToPt(7),
           { width: larguraPt - 2 * padding, align: 'center' }
         );
     }
