@@ -1768,6 +1768,22 @@ async function buscarPrecoInternet() {
 }
 
 // =====================
+// CUSTOM CONFIRM
+// =====================
+window.customConfirm = function(title, message, icon, onConfirm) {
+  document.getElementById('modalConfirmTitle').textContent = title;
+  document.getElementById('modalConfirmMessage').textContent = message;
+  document.getElementById('modalConfirmIcon').textContent = icon || '⚠️';
+  document.getElementById('modalConfirm').style.display = 'flex';
+  
+  const btnOk = document.getElementById('btnConfirmOk');
+  btnOk.onclick = () => {
+    closeModal('modalConfirm');
+    if (onConfirm) onConfirm();
+  };
+};
+
+// =====================
 // QR SCANNER (Câmera & USB)
 // =====================
 let html5QrcodeScanner = null;

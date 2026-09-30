@@ -319,23 +319,35 @@ function imprimirEtiquetaLote(codigo, nome) {
 }
 
 async function apagarLote(loteId) {
-  if (!confirm('Deseja realmente apagar este lote? Os itens voltarão para o estoque normal.')) return;
-  try {
-    await apiFetch(`/lotes/${loteId}`, { method: 'DELETE' });
-    showToast('Lote apagado com sucesso!', 'success');
-    loadLotes();
-  } catch(e) {
-    showToast('Erro ao apagar lote: ' + e.message, 'error');
-  }
+  window.customConfirm(
+    'Apagar Lote?',
+    'Deseja realmente apagar este lote? Os itens voltarão para o estoque normal.',
+    '🗑️',
+    async () => {
+      try {
+        await apiFetch(`/lotes/${loteId}`, { method: 'DELETE' });
+        showToast('Lote apagado com sucesso!', 'success');
+        loadLotes();
+      } catch(e) {
+        showToast('Erro ao apagar lote: ' + e.message, 'error');
+      }
+    }
+  );
 }
 
 async function removerItemDoLote(loteId, itemId) {
-  if (!confirm('Remover este item do lote?')) return;
-  try {
-    await apiFetch(`/lotes/${loteId}/itens/${itemId}`, { method: 'DELETE' });
-    showToast('Item removido do lote!', 'success');
-    loadLotes();
-  } catch(e) {
-    showToast('Erro ao remover item do lote: ' + e.message, 'error');
-  }
+  window.customConfirm(
+    'Remover Item?',
+    'Tem certeza que deseja remover este item do lote?',
+    '✂️',
+    async () => {
+      try {
+        await apiFetch(`/lotes/${loteId}/itens/${itemId}`, { method: 'DELETE' });
+        showToast('Item removido do lote!', 'success');
+        loadLotes();
+      } catch(e) {
+        showToast('Erro ao remover item do lote: ' + e.message, 'error');
+      }
+    }
+  );
 }

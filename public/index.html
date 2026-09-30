@@ -271,8 +271,8 @@
 
         <div class="filter-bar">
           <div class="filter-tabs">
-            <button class="filter-tab active" data-status="">Todos</button>
-            <button class="filter-tab" data-status="ESTOQUE">Em Estoque</button>
+            <button class="filter-tab" data-status="">Todos</button>
+            <button class="filter-tab active" data-status="ESTOQUE">Em Estoque</button>
             <button class="filter-tab" data-status="SAIU">Saíram</button>
           </div>
           <div class="filter-setor">
@@ -512,6 +512,21 @@
     </div>
   </div>
 
+  <!-- Modal de Confirmação Genérica -->
+  <div class="modal-overlay" id="modalConfirm" style="display:none; z-index: 9999;">
+    <div class="modal" style="width: 400px; text-align: center;">
+      <div class="modal-body" style="padding: 30px 20px;">
+        <div id="modalConfirmIcon" style="font-size: 40px; margin-bottom: 15px;">⚠️</div>
+        <h4 id="modalConfirmTitle" style="margin:0 0 10px 0; color:#fff; font-size:18px;">Confirmar Ação</h4>
+        <p id="modalConfirmMessage" style="margin:0 0 20px 0; color:var(--text-muted); font-size:14px;"></p>
+        <div style="display:flex; justify-content:center; gap: 15px;">
+          <button class="btn-secondary" onclick="closeModal('modalConfirm')" id="btnConfirmCancel">Cancelar</button>
+          <button class="btn-danger" id="btnConfirmOk" style="padding: 10px 30px; font-weight:bold;">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal de Saída de Item -->
   <div class="modal-overlay" id="modalSaida" style="display:none">
     <div class="modal">
@@ -635,7 +650,7 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=36"></script>
-  <script src="lotes_sse.js?v=6"></script>
+  <script src="app.js?v=37"></script>
+  <script src="lotes_sse.js?v=7"></script>
 </body>
 </html>
