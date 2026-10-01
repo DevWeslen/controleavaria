@@ -1862,10 +1862,8 @@ window.playSuccessBeep = function() {
 };
 
 // =====================
-// QR SCANNER (Câmera & USB)
+// QR SCANNER (USB / Teclado)
 // =====================
-let html5QrcodeScanner = null;
-
 let scannerContext = 'saida';
 let scannerContextId = null;
 
@@ -1879,27 +1877,10 @@ function abrirScanner(context = 'saida', id = null) {
     const usbInput = document.getElementById('leitorUsbInput');
     if(usbInput) usbInput.focus();
   }, 100);
-
-  // Inicializa a câmera se houver
-  if (!html5QrcodeScanner) {
-    try {
-      html5QrcodeScanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
-      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-    } catch(e) {
-      console.log('Erro ao iniciar câmera: ', e);
-      showToast('Erro na câmera. Lembre-se: navegadores exigem HTTPS ou localhost para acessar a câmera.', 'error');
-    }
-  }
 }
 
 function fecharScanner() {
   document.getElementById('modalScanner').style.display = 'none';
-  if (html5QrcodeScanner) {
-    try {
-      html5QrcodeScanner.clear();
-    } catch(e) {}
-    html5QrcodeScanner = null;
-  }
 }
 
 async function processScan(codigoLido) {

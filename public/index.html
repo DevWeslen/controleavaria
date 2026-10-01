@@ -650,8 +650,7 @@
         <button class="modal-close" onclick="fecharScanner()">✕</button>
       </div>
       <div class="modal-body" style="text-align: center; padding: 20px;">
-        <div id="qr-reader" style="width: 100%; border: 1px solid #333; border-radius: 8px; overflow: hidden; margin-bottom: 15px;"></div>
-        <p style="font-size: 12px; color: #888;">Aponte a câmera para a etiqueta ou digite/bipe abaixo:</p>
+        <p style="font-size: 14px; color: #fff; margin-bottom: 20px;">Use a pistola / leitor USB para bipar o código:</p>
         <div style="display:flex; gap:10px; margin-top:10px;">
           <input type="text" id="leitorUsbInput" class="form-input" style="width:100%; text-align:center; font-family:monospace; letter-spacing:1px;" placeholder="Ex: AV-... ou LOT-..." autocomplete="off">
           <button class="btn-primary" onclick="const v = document.getElementById('leitorUsbInput').value.trim(); if(v) { processScan(v); document.getElementById('leitorUsbInput').value = ''; }">Buscar</button>
