@@ -80,32 +80,37 @@ app.get('/{*path}', (req, res) => {
 });
 
 // Gerar ou carregar certificado autoassinado para HTTPS (necessário para a câmera no mobile)
-let pems;
 const keyPath = path.join(__dirname, 'key.pem');
 const certPath = path.join(__dirname, 'cert.pem');
 
+function startServer(pemsObj) {
+  const httpsOptions = {
+    key: pemsObj.private,
+    cert: pemsObj.cert
+  };
+  https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🏭 Controle de Avarias rodando em HTTPS seguro (necessário para a câmera)`);
+    console.log(`📡 Acesse localmente: https://localhost:${PORT}`);
+    console.log(`\nAcesso na rede local: https://<seu-ip>:${PORT}\n`);
+  });
+}
+
 if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-  pems = {
+  const pems = {
     private: fs.readFileSync(keyPath, 'utf8'),
     cert: fs.readFileSync(certPath, 'utf8')
   };
+  startServer(pems);
 } else {
   console.log('Gerando certificado HTTPS local pela primeira vez...');
   const attrs = [{ name: 'commonName', value: 'localhost' }];
-  pems = selfsigned.generate(attrs, { days: 365, keySize: 2048 });
-  fs.writeFileSync(keyPath, pems.private);
-  fs.writeFileSync(certPath, pems.cert);
+  selfsigned.generate(attrs, { days: 365, keySize: 2048 }).then(pemsGen => {
+    fs.writeFileSync(keyPath, pemsGen.private);
+    fs.writeFileSync(certPath, pemsGen.cert);
+    startServer(pemsGen);
+  }).catch(err => {
+    console.error('Erro ao gerar certificado:', err);
+  });
 }
-
-const httpsOptions = {
-  key: pems.private,
-  cert: pems.cert
-};
-
-https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🏭 Controle de Avarias rodando em HTTPS seguro (necessário para a câmera)`);
-  console.log(`📡 Acesse localmente: https://localhost:${PORT}`);
-  console.log(`\nAcesso na rede local: https://<seu-ip>:${PORT}\n`);
-});
 
 module.exports = app;
