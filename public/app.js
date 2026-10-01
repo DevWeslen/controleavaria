@@ -711,7 +711,7 @@ function drawWarehouse() {
     }
     
     // Highlight da busca
-    const isHighlighted = window.highlightedLoc && window.highlightedLoc === l.id;
+    const isHighlighted = window.highlightedLoc && (window.highlightedLoc === l.id || window.highlightedLoc === l.dbId || (l.id && l.id.startsWith(window.highlightedLoc + '-')));
     const ph = ocupado ? 1.5 + Math.min(2, totalItens * 0.3) : 0.4;
     
     drawablePaletes.push({

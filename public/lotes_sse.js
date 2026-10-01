@@ -27,8 +27,7 @@ function initSSE() {
         window.highlightedLoc = item.localizacao;
         if (typeof drawablePaletes !== 'undefined') {
           const palete = drawablePaletes.find(p => 
-            p.id === item.localizacao || 
-            (p.loc && p.loc.codigo === item.localizacao) ||
+            p.loc && p.loc.codigo === item.localizacao || 
             (p.setor && p.setor.nome === item.localizacao)
           );
 
@@ -70,7 +69,7 @@ function initSSE() {
       if (typeof currentPage !== 'undefined') {
          if (currentPage === 'estoque' && typeof loadEstoque === 'function') loadEstoque();
          if (currentPage === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
-         if (currentPage === 'mapa' && typeof loadMapa === 'function' && !item.localizacao) loadMapa();
+         if (currentPage === 'mapa' && typeof loadMapa === 'function') loadMapa();
       }
     } catch(err) {
       console.error('Erro ao processar SSE:', err);
