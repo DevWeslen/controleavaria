@@ -1887,6 +1887,7 @@ function abrirScanner(context = 'saida', id = null) {
       html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     } catch(e) {
       console.log('Erro ao iniciar câmera: ', e);
+      showToast('Erro na câmera. Lembre-se: navegadores exigem HTTPS ou localhost para acessar a câmera.', 'error');
     }
   }
 }
