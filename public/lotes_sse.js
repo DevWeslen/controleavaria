@@ -67,8 +67,10 @@ function initSSE() {
       }
 
       // Atualizar lista de estoque se estiver nela
-      if (typeof currentPage !== 'undefined' && currentPage === 'estoque' && typeof loadEstoque === 'function') {
-         loadEstoque();
+      if (typeof currentPage !== 'undefined') {
+         if (currentPage === 'estoque' && typeof loadEstoque === 'function') loadEstoque();
+         if (currentPage === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+         if (currentPage === 'mapa' && typeof loadMapa === 'function' && !item.localizacao) loadMapa();
       }
     } catch(err) {
       console.error('Erro ao processar SSE:', err);

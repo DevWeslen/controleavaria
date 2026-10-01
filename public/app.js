@@ -789,7 +789,7 @@ function drawStreets() {
 
   // Street regions {x, z, w, d}
   const streets = [
-    {x: -10, z: -45, w: 20, d: 70},  // Main vertical (Between Left and Right columns)
+    {x: -5, z: -45, w: 10, d: 70},   // Main vertical (Between Left and Right columns)
     {x: 10, z: -25, w: 36, d: 5},    // Small horizontal left 1 (Below Porta Pallet)
     {x: 10, z: -8, w: 36, d: 3},     // Small horizontal left 2 (Below ZR/PJ)
     {x: 10, z: 7, w: 36, d: 3},      // Small horizontal left 3 (Below Tratativa/Debito)
@@ -2016,73 +2016,73 @@ function updateCharacter() {
 
 function drawCharacter() {
   if (window.currentViewMode === 'aerea') return;
-  const ctx = mapaCtx;
-  const scale = window.mapaScale || 1;
-  const bounce = Math.abs(Math.sin(charPos.timer)) * 0.4;
+  const bounce = Math.abs(Math.sin(charPos.timer)) * 0.2;
   
-  // Sombra
-  const pS = project(charPos.x, 0, charPos.z);
-  ctx.beginPath();
-  ctx.ellipse(pS.x, pS.y, 4*scale, 2*scale, 0, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fill();
+  const cx = charPos.x;
+  const cy = bounce;
+  const cz = charPos.z;
 
-  // Projetar os pontos no 3D
-  // Z position changes the drawing order, but since we draw it after pallets, it's always on top of the street
-  const pBox = project(charPos.x + (charPos.dir * 0.5), 1 + bounce, charPos.z);
-  const pBody = project(charPos.x, 1.5 + bounce, charPos.z);
-  const pHead = project(charPos.x, 3.5 + bounce, charPos.z);
+  function drawCube(bx, by, bz, bw, bh, bd, colorTop, colorRight, colorLeft) {
+    const p000 = project(bx, by, bz);
+    const p100 = project(bx+bw, by, bz);
+    const p101 = project(bx+bw, by, bz+bd);
+    const p001 = project(bx, by, bz+bd);
+    
+    const p010 = project(bx, by+bh, bz);
+    const p110 = project(bx+bw, by+bh, bz);
+    const p111 = project(bx+bw, by+bh, bz+bd);
+    const p011 = project(bx, by+bh, bz+bd);
 
-  // Se ele está andando pra direita (dir=1), a caixa fica na frente dele
+    // Left/Front (facing +Z)
+    drawFace([p001, p101, p111, p011], colorLeft, 'rgba(0,0,0,0.4)');
+    // Right (facing +X)
+    drawFace([p100, p101, p111, p110], colorRight, 'rgba(0,0,0,0.4)');
+    // Top
+    drawFace([p010, p110, p111, p011], colorTop, 'rgba(0,0,0,0.4)');
+  }
   
-  // Corpo
-  ctx.beginPath();
-  ctx.rect(pBody.x - 2.5*scale, pBody.y - 3*scale, 5*scale, 6*scale);
-  ctx.fillStyle = '#2980B9'; // Uniforme azul
-  ctx.fill();
-  ctx.strokeStyle = '#1A5276';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // Cabeca (Capacete Amarelo)
-  ctx.beginPath();
-  ctx.arc(pHead.x, pHead.y, 2.5*scale, 0, Math.PI*2);
-  ctx.fillStyle = '#F1C40F'; 
-  ctx.fill();
-  ctx.strokeStyle = '#B7950B';
-  ctx.stroke();
+  // Forklift body
+  drawCube(cx - 2.5, cy + 0.5, cz - 1.5, 5, 2, 3, '#F39C12', '#D68910', '#B9770E');
   
-  // Olho / Visor
-  const eyeOffset = charPos.dir === 1 ? 1.5 : -1.5;
-  ctx.beginPath();
-  ctx.arc(pHead.x + (eyeOffset * scale), pHead.y - 0.5*scale, 0.8*scale, 0, Math.PI*2);
-  ctx.fillStyle = '#FFF';
-  ctx.fill();
+  // Cabin
+  drawCube(cx - 1, cy + 2.5, cz - 1, 2.5, 2.5, 2, '#34495E', '#2C3E50', '#212F3C');
+  
+  // Wheels
+  drawCube(cx - 2, cy, cz - 1.7, 1.2, 1.2, 0.4, '#111', '#000', '#222');
+  drawCube(cx + 1, cy, cz - 1.7, 1.2, 1.2, 0.4, '#111', '#000', '#222');
+  drawCube(cx - 2, cy, cz + 1.3, 1.2, 1.2, 0.4, '#111', '#000', '#222');
+  drawCube(cx + 1, cy, cz + 1.3, 1.2, 1.2, 0.4, '#111', '#000', '#222');
 
-  // Caixa
-  ctx.beginPath();
-  ctx.rect(pBox.x - 3*scale, pBox.y - 3*scale, 6*scale, 6*scale);
-  ctx.fillStyle = '#D35400'; 
-  ctx.fill();
-  ctx.strokeStyle = '#873600';
-  ctx.stroke();
-
-  // Fita da caixa
-  ctx.beginPath();
-  ctx.moveTo(pBox.x - 3*scale, pBox.y);
-  ctx.lineTo(pBox.x + 3*scale, pBox.y);
-  ctx.strokeStyle = '#FAD7A1';
-  ctx.stroke();
+  // Forks and Mast
+  if (charPos.dir === 1) {
+    drawCube(cx + 2.5, cy + 0.2, cz - 1, 2, 0.2, 0.4, '#BDC3C7', '#95A5A6', '#7F8C8D');
+    drawCube(cx + 2.5, cy + 0.2, cz + 0.6, 2, 0.2, 0.4, '#BDC3C7', '#95A5A6', '#7F8C8D');
+    drawCube(cx + 2.3, cy + 0.2, cz - 1.5, 0.4, 4, 3, '#95A5A6', '#7F8C8D', '#616A6B');
+  } else {
+    drawCube(cx - 4.5, cy + 0.2, cz - 1, 2, 0.2, 0.4, '#BDC3C7', '#95A5A6', '#7F8C8D');
+    drawCube(cx - 4.5, cy + 0.2, cz + 0.6, 2, 0.2, 0.4, '#BDC3C7', '#95A5A6', '#7F8C8D');
+    drawCube(cx - 2.7, cy + 0.2, cz - 1.5, 0.4, 4, 3, '#95A5A6', '#7F8C8D', '#616A6B');
+  }
 }
 
 let isAnimRunning = false;
+let lastFrameTime = 0;
+const targetFPS = 15;
+const frameDelay = 1000 / targetFPS;
+
 function startAnimLoop() {
   if (isAnimRunning) return;
   isAnimRunning = true;
-  function loop() {
-    updateCharacter();
-    if (currentPage === 'mapa' && typeof mapaCanvas !== 'undefined' && mapaCanvas) {
-      drawWarehouse();
+  function loop(timestamp) {
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    const elapsed = timestamp - lastFrameTime;
+    
+    if (elapsed > frameDelay) {
+      updateCharacter();
+      if (currentPage === 'mapa' && typeof mapaCanvas !== 'undefined' && mapaCanvas) {
+        drawWarehouse();
+      }
+      lastFrameTime = timestamp - (elapsed % frameDelay);
     }
     requestAnimationFrame(loop);
   }
