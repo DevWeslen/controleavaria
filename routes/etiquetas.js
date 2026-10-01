@@ -50,9 +50,9 @@ router.post('/gerar', async (req, res) => {
       // ============================================
       // HEADER BAR
       // ============================================
-      const setorCor = item.localizacao?.setor?.cor || '#4A90D9';
+      const setorCor = '#000000'; // Forçado para preto para impressora térmica
       const headerHeight = mmToPt(11);
-      // Fundo do header (ocupando largura total, menos a borda)
+      // Fundo do header
       doc.rect(2, 2, larguraPt - 4, headerHeight).fill(setorCor);
       
       // Nome do setor (Alinhado à esquerda)
@@ -139,11 +139,12 @@ router.post('/gerar', async (req, res) => {
       if (item.motivoAvaria) {
         const avariaY = maxBodyY + mmToPt(2);
         const avariaHeight = mmToPt(6);
-        // Fundo vermelho claro (#fff0f0)
-        doc.rect(bodyLeft, avariaY, larguraPt - 2 * padding, avariaHeight).fill('#FFF0F0');
+        // Fundo branco com borda para chamar atenção sem fundo cinza/colorido
+        doc.rect(bodyLeft, avariaY, larguraPt - 2 * padding, avariaHeight).fill('#FFFFFF');
+        doc.rect(bodyLeft, avariaY, larguraPt - 2 * padding, avariaHeight).lineWidth(1).stroke('#000000');
         
-        // Texto da avaria
-        doc.fillColor('#CC3333')
+        // Texto da avaria em preto
+        doc.fillColor('#000000')
           .fontSize(mmToPt(3.0))
           .font('Helvetica-Bold')
           .text(
@@ -160,9 +161,9 @@ router.post('/gerar', async (req, res) => {
       const footerTop = alturaPt - mmToPt(14);
       
       // Linha superior do footer
-      doc.moveTo(padding, footerTop).lineTo(larguraPt - padding, footerTop).lineWidth(1).stroke('#EEEEEE');
+      doc.moveTo(padding, footerTop).lineTo(larguraPt - padding, footerTop).lineWidth(1).stroke('#000000');
 
-      doc.fillColor('#888888')
+      doc.fillColor('#000000')
         .fontSize(mmToPt(3.0))
         .font('Helvetica')
         .text(
@@ -172,7 +173,7 @@ router.post('/gerar', async (req, res) => {
           { width: larguraPt - 2 * padding, align: 'center' }
         );
 
-      doc.fillColor('#AAAAAA')
+      doc.fillColor('#000000')
         .fontSize(mmToPt(2.8))
         .text(
           'AvariasControl — Princesa dos Campos',

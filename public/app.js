@@ -1393,7 +1393,7 @@ async function showEtiquetaPreview(item) {
     card.style.display = 'block';
     // Preview proporcional a 90mm x 100mm (razão 0.9)
     previewEl.innerHTML = `
-      <div class="etiqueta-header-bar" style="background:${preview.setorCor};font-size:14px;padding:8px 12px">
+      <div class="etiqueta-header-bar" style="background:#000000;color:#ffffff;font-size:14px;padding:8px 12px">
         ${preview.setor}
       </div>
       <div class="etiqueta-body" style="gap:14px;padding:10px 0 6px">
