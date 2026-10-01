@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const https = require('https');
+const fs = require('fs');
+const selfsigned = require('selfsigned');
 require('dotenv').config();
 
 const itemRoutes = require('./routes/items');
@@ -76,10 +79,33 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🏭 Controle de Avarias rodando em http://localhost:${PORT}`);
-  console.log(`📡 API disponível em http://localhost:${PORT}/api`);
-  console.log(`\nAcesso na rede local: http://<seu-ip>:${PORT}\n`);
+// Gerar ou carregar certificado autoassinado para HTTPS (necessário para a câmera no mobile)
+let pems;
+const keyPath = path.join(__dirname, 'key.pem');
+const certPath = path.join(__dirname, 'cert.pem');
+
+if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  pems = {
+    private: fs.readFileSync(keyPath, 'utf8'),
+    cert: fs.readFileSync(certPath, 'utf8')
+  };
+} else {
+  console.log('Gerando certificado HTTPS local pela primeira vez...');
+  const attrs = [{ name: 'commonName', value: 'localhost' }];
+  pems = selfsigned.generate(attrs, { days: 365, keySize: 2048 });
+  fs.writeFileSync(keyPath, pems.private);
+  fs.writeFileSync(certPath, pems.cert);
+}
+
+const httpsOptions = {
+  key: pems.private,
+  cert: pems.cert
+};
+
+https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🏭 Controle de Avarias rodando em HTTPS seguro (necessário para a câmera)`);
+  console.log(`📡 Acesse localmente: https://localhost:${PORT}`);
+  console.log(`\nAcesso na rede local: https://<seu-ip>:${PORT}\n`);
 });
 
 module.exports = app;
