@@ -1313,6 +1313,9 @@ async function submitCadastro(e) {
     // Mostrar preview de etiqueta (no fundo)
     await showEtiquetaPreview(item);
 
+    // Baixar etiqueta automaticamente
+    await imprimirEtiqueta();
+
     // Limpar form
     document.getElementById('formCadastrar').reset();
 
@@ -1431,14 +1434,34 @@ async function imprimirEtiqueta() {
 
     if (!res.ok) throw new Error('Falha ao gerar PDF');
 
-    const blob = await res.blob();
+    const blob = new Blob([await res.arrayBuffer()], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `etiqueta_${currentItemIdForEtiqueta}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Etiqueta gerada com sucesso!', 'success');
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (err) {
+          console.error('Erro ao imprimir via onload', err);
+        }
+      }, 200);
+    };
+
+    // Fallback: em alguns navegadores o onload não dispara para PDFs
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {}
+    }, 1000);
+
+    showToast('Preparando impressão...', 'success');
   } catch (e) {
     showToast('Erro ao gerar etiqueta: ' + e.message, 'error');
   }
