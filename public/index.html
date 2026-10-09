@@ -310,11 +310,25 @@
                   </div>
                 </div>
 
-                <div class="form-row two-col">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                  <div class="form-group">
+                    <label for="inputUnidadeMedida">Tipo (UN/CX)</label>
+                    <select id="inputUnidadeMedida" class="form-input select-input" onchange="document.getElementById('groupItensPorCaixa').style.display = this.value === 'CX' ? 'block' : 'none'">
+                      <option value="UN">Unidade</option>
+                      <option value="CX">Caixa</option>
+                    </select>
+                  </div>
                   <div class="form-group">
                     <label for="inputQuantidade">Quantidade</label>
                     <input type="number" id="inputQuantidade" class="form-input" value="1" min="1" required>
                   </div>
+                  <div class="form-group" id="groupItensPorCaixa" style="display:none;">
+                    <label for="inputItensPorCaixa">Qtde Itens/Caixa</label>
+                    <input type="number" id="inputItensPorCaixa" class="form-input" min="1">
+                  </div>
+                </div>
+
+                <div class="form-row">
                   <div class="form-group">
                     <label for="inputLocalizacao">Localização (Palete)</label>
                     <select id="inputLocalizacao" class="form-input select-input">

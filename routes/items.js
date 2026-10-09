@@ -129,7 +129,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/items - Cadastrar novo item
 router.post('/', async (req, res) => {
   try {
-    const { nome, descricao, quantidade, motivoAvaria, localizacaoId, usuario, valorNf, valorInternet, sugestao } = req.body;
+    const { nome, descricao, quantidade, motivoAvaria, localizacaoId, usuario, valorNf, valorInternet, sugestao, unidadeMedida, itensPorCaixa } = req.body;
     
     if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
 
@@ -142,6 +142,8 @@ router.post('/', async (req, res) => {
         nome,
         descricao,
         quantidade: quantidade || 1,
+        unidadeMedida: unidadeMedida || 'UN',
+        itensPorCaixa: itensPorCaixa ? parseInt(itensPorCaixa) : null,
         motivoAvaria,
         localizacaoId: localizacaoId || null,
         status: 'ESTOQUE',
@@ -192,7 +194,7 @@ router.post('/', async (req, res) => {
 // PUT /api/items/:id - Atualizar item
 router.put('/:id', async (req, res) => {
   try {
-    const { nome, descricao, quantidade, motivoAvaria, localizacaoId, status, valorNf, valorInternet, sugestao } = req.body;
+    const { nome, descricao, quantidade, motivoAvaria, localizacaoId, status, valorNf, valorInternet, sugestao, unidadeMedida, itensPorCaixa } = req.body;
 
     const item = await prisma.item.update({
       where: { id: req.params.id },
@@ -200,6 +202,8 @@ router.put('/:id', async (req, res) => {
         nome,
         descricao,
         quantidade,
+        unidadeMedida,
+        itensPorCaixa: itensPorCaixa ? parseInt(itensPorCaixa) : null,
         motivoAvaria,
         localizacaoId: localizacaoId || null,
         status,

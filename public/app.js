@@ -1296,6 +1296,8 @@ async function submitCadastro(e) {
     const data = {
       nome: document.getElementById('inputNome').value,
       quantidade: parseInt(document.getElementById('inputQuantidade').value),
+      unidadeMedida: document.getElementById('inputUnidadeMedida') ? document.getElementById('inputUnidadeMedida').value : 'UN',
+      itensPorCaixa: document.getElementById('inputItensPorCaixa') && document.getElementById('inputItensPorCaixa').value ? parseInt(document.getElementById('inputItensPorCaixa').value) : null,
       localizacaoId: document.getElementById('inputLocalizacao').value || null,
       motivoAvaria: document.getElementById('inputMotivoAvaria').value || null,
       descricao: document.getElementById('inputDescricao').value || null,
@@ -1408,7 +1410,7 @@ async function showEtiquetaPreview(item) {
           <div class="etiqueta-nome" style="font-size:14px;margin-bottom:6px">${item.nome}</div>
           <div class="etiqueta-field"><strong>Cód:</strong> ${item.codigo}</div>
           <div class="etiqueta-field"><strong>Local:</strong> ${preview.localizacao}</div>
-          <div class="etiqueta-field"><strong>Qtd:</strong> ${item.quantidade}</div>
+          <div class="etiqueta-field"><strong>Qtd:</strong> ${item.unidadeMedida === 'CX' ? 'caixa ' + item.quantidade : item.quantidade} ${item.unidadeMedida === 'CX' && item.itensPorCaixa ? '<span style="color:red; margin-left: 5px;">qtde itens: ' + item.itensPorCaixa + '</span>' : ''}</div>
           <div class="etiqueta-field"><strong>Data:</strong> ${formatDate(item.createdAt || new Date())}</div>
         </div>
       </div>

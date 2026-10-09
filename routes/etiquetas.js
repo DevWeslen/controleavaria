@@ -128,7 +128,13 @@ router.post('/gerar', async (req, res) => {
 
       drawField('Cód', item.codigo);
       drawField('Local', item.localizacao?.codigo || 'N/A');
-      drawField('Qtd', item.quantidade);
+      
+      const qtdText = item.unidadeMedida === 'CX' ? `caixa ${item.quantidade}` : `${item.quantidade}`;
+      drawField('Qtd', qtdText);
+      if (item.unidadeMedida === 'CX' && item.itensPorCaixa) {
+        drawField('Qtde Itens', `${item.itensPorCaixa}`);
+      }
+      
       drawField('Data', new Date(item.createdAt).toLocaleDateString('pt-BR'));
 
       // ============================================

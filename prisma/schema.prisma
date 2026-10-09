@@ -69,6 +69,8 @@ model Item {
   nome            String
   descricao       String?
   quantidade      Int         @default(1)
+  unidadeMedida   String      @default("UN") // UN, CX
+  itensPorCaixa   Int?
   motivoAvaria    String?
   status          String      @default("ESTOQUE") // ESTOQUE, SAIU
   localizacaoId   String?
