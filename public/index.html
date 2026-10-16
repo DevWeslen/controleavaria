@@ -7,7 +7,7 @@
   <title>AvariasControl — Controle de Estoque</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=24">
   <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body class="sidebar-collapsed">
@@ -71,6 +71,16 @@
         <span>Lotes</span>
         <span class="badge-new" style="background:#F59E0B">Novo</span>
       </button>
+      <button class="nav-item role-only-admin" data-page="usuarios" id="nav-usuarios" style="display:none">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Usuários</span>
+        <span class="badge-new" style="background:#8B5CF6">Admin</span>
+      </button>
     </nav>
     
     <div style="padding: 20px;">
@@ -119,6 +129,19 @@
           </svg>
           Novo Item
         </button>
+
+        <!-- Informações do Usuário Logado -->
+        <div class="user-profile-header" id="userProfileHeader" style="display:none">
+          <div class="user-profile-info">
+            <span class="user-profile-name" id="userDisplayName">Carregando...</span>
+            <span class="role-badge role-operador" id="userRoleBadge">OPERADOR</span>
+          </div>
+          <div class="user-profile-actions">
+            <button class="btn-header-action btn-logout" onclick="fazerLogout()" title="Sair do sistema">
+              🚪 Sair
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -142,6 +165,7 @@
             <div class="stat-info">
               <span class="stat-label">Total Cadastrado</span>
               <span class="stat-value" id="statTotal">—</span>
+              <div class="stat-sub" id="statTotalSub"></div>
             </div>
           </div>
           <div class="stat-card stat-estoque">
@@ -153,6 +177,7 @@
             <div class="stat-info">
               <span class="stat-label">Em Estoque</span>
               <span class="stat-value" id="statEstoque">—</span>
+              <div class="stat-sub" id="statEstoqueSub"></div>
             </div>
           </div>
           <div class="stat-card stat-saiu">
@@ -165,6 +190,7 @@
             <div class="stat-info">
               <span class="stat-label">Saíram</span>
               <span class="stat-value" id="statSaiu">—</span>
+              <div class="stat-sub" id="statSaiuSub"></div>
             </div>
           </div>
           <div class="stat-card stat-setores">
@@ -176,8 +202,51 @@
             </div>
             <div class="stat-info">
               <span class="stat-label">Setores Ativos</span>
-              <span class="stat-value" id="statSetores">3</span>
+              <span class="stat-value" id="statSetores">—</span>
+              <div class="stat-sub" id="statSetoresSub"></div>
             </div>
+          </div>
+        </div>
+
+        <!-- Posição geral por unidade de medida -->
+        <div class="card dash-card">
+          <div class="card-header">
+            <h3>Posição Geral por Unidade de Medida</h3>
+            <span class="dash-hint">Caixas (cx) e unidades (un) separadas; "un em caixas" = caixas × itens por caixa</span>
+          </div>
+          <div class="card-body" id="dashPosicaoGeral"><div class="loading-spinner"></div></div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header"><h3>Estoque por Setor</h3></div>
+            <div class="card-body" id="dashPorSetor"><div class="loading-spinner"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Movimentação por Período</h3></div>
+            <div class="card-body" id="dashPeriodos"><div class="loading-spinner"></div></div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header"><h3>Saídas por Motivo</h3></div>
+            <div class="card-body" id="dashSaidasMotivo"><div class="loading-spinner"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Motivos de Avaria (em estoque)</h3></div>
+            <div class="card-body" id="dashMotivosAvaria"><div class="loading-spinner"></div></div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header"><h3>Top Produtos em Estoque</h3></div>
+            <div class="card-body" id="dashTopProdutos"><div class="loading-spinner"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Lotes e Valores em Estoque</h3></div>
+            <div class="card-body" id="dashLotesValores"><div class="loading-spinner"></div></div>
           </div>
         </div>
 
@@ -494,6 +563,57 @@
                <!-- Lotes renderizados aqui -->
             </div>
           </div>
+      </section>
+
+      <!-- USUÁRIOS PAGE (APENAS ADMIN) -->
+      <section class="page" id="page-usuarios">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+          <div>
+            <h1>Gestão de Usuários</h1>
+            <p class="page-subtitle">Controle de acessos e permissões por nível (Admin, Gestor e Operador)</p>
+          </div>
+          <button class="btn-primary" onclick="abrirModalUsuario()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Novo Usuário
+          </button>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <h3 style="margin:0;">Usuários Cadastrados</h3>
+              <span id="usuariosTotalBadge" class="badge-new" style="background:var(--accent);">0</span>
+            </div>
+            <div style="position:relative; width:260px;">
+              <input type="text" id="filtroUsuariosInput" class="form-input" style="height:36px; font-size:13px; padding-left:32px;" placeholder="Filtrar por nome ou login...">
+              <svg style="position:absolute; left:10px; top:10px; color:var(--text-muted); pointer-events:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="users-table-container">
+              <table class="users-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Login</th>
+                    <th>Nível de Acesso</th>
+                    <th>Status</th>
+                    <th>Cadastrado em</th>
+                    <th style="text-align:right;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="usuariosTableBody">
+                  <tr>
+                    <td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Carregando usuários...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -587,6 +707,7 @@
         <div class="form-group">
           <label>Quantidade</label>
           <input type="number" id="modalQtd" class="form-input" value="1" min="1">
+          <small id="modalQtdHint" class="qtd-hint"></small>
         </div>
         <div class="form-group">
           <label>Responsável</label>
@@ -617,6 +738,8 @@
         <button class="btn-primary-small" onclick="imprimirEtiquetaModal()">🖨️ Imprimir Etiqueta</button>
         <button class="btn-primary-small" id="btnTransferirModal" onclick="abrirTransferenciaDoModal()">🚚 Transferir</button>
         <button class="btn-danger-small" id="btnSaidaModal" onclick="abrirSaidaDoModal()">📤 Registrar Saída</button>
+        <button class="btn-primary-small role-gestor-admin" id="btnEditarItemModal" onclick="abrirEdicaoItemModal()" style="display:none; background:#0284c7;">✏️ Editar Item</button>
+        <button class="btn-danger-small role-gestor-admin" id="btnExcluirItemModal" onclick="confirmarExclusaoItemModal()" style="display:none; background:#dc2626;">🗑️ Excluir Item</button>
       </div>
     </div>
   </div>
@@ -676,10 +799,298 @@
     </div>
   </div>
 
+  <!-- ==========================================
+       MODAL DE EDIÇÃO DE ITEM (GESTOR / ADMIN)
+       ========================================== -->
+  <div class="modal-overlay" id="modalEditarItem" style="display:none">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>Editar Item do Estoque</h3>
+        <button class="modal-close" onclick="closeModal('modalEditarItem')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editItemId">
+        <div class="form-grid" style="display:grid; grid-template-columns: 2fr 1fr; gap:16px;">
+          <div class="form-group">
+            <label>Nome do Item *</label>
+            <input type="text" id="editItemNome" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label>Status *</label>
+            <select id="editItemStatus" class="form-input select-input">
+              <option value="ESTOQUE">Em Estoque</option>
+              <option value="SAIU">Saiu</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px;">
+          <div class="form-group">
+            <label>Quantidade *</label>
+            <input type="number" id="editItemQtd" class="form-input" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>Unidade</label>
+            <select id="editItemUnidade" class="form-input select-input">
+              <option value="UN">Unidade (UN)</option>
+              <option value="CX">Caixa (CX)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Itens por Caixa</label>
+            <input type="number" id="editItemItensPorCaixa" class="form-input" min="1" placeholder="Se CX">
+          </div>
+        </div>
+
+        <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+          <div class="form-group">
+            <label>Localização / Palete *</label>
+            <select id="editItemLocalizacao" class="form-input select-input">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Motivo da Avaria</label>
+            <input type="text" id="editItemMotivoAvaria" class="form-input" placeholder="Ex: Embalagem danificada, sobra...">
+          </div>
+        </div>
+
+        <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; background:rgba(0,0,0,0.2); padding:12px; border-radius:8px;">
+          <div class="form-group">
+            <label>Valor NF (R$)</label>
+            <input type="number" step="0.01" id="editItemValorNf" class="form-input" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Valor Internet (R$)</label>
+            <input type="number" step="0.01" id="editItemValorInternet" class="form-input" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Sugestão (R$)</label>
+            <input type="number" step="0.01" id="editItemSugestao" class="form-input" placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:12px;">
+          <label>Descrição / Observações</label>
+          <textarea id="editItemDescricao" class="form-input form-textarea" rows="2" placeholder="Observações do item..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('modalEditarItem')">Cancelar</button>
+        <button class="btn-primary" id="btnSalvarEdicaoItem" onclick="salvarEdicaoItem()">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL DE USUÁRIO (CRIAR / EDITAR) - ADMIN
+       ========================================== -->
+  <div class="modal-overlay" id="modalUsuarioForm" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalUsuarioTitle">Novo Usuário</h3>
+        <button class="modal-close" onclick="closeModal('modalUsuarioForm')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="usuarioFormId">
+        <div class="form-group">
+          <label>Nome Completo *</label>
+          <input type="text" id="usuarioFormNome" class="form-input" placeholder="Ex: João da Silva" required>
+        </div>
+
+        <div class="form-group">
+          <label>Login de Acesso *</label>
+          <input type="text" id="usuarioFormLogin" class="form-input" placeholder="Ex: joao.silva" autocomplete="off" required>
+          <span style="font-size:11px; color:var(--text-muted); margin-top:3px; display:block">Sem espaços, letras minúsculas</span>
+        </div>
+
+        <div class="form-group">
+          <label>Nível de Acesso (Perfil) *</label>
+          <select id="usuarioFormRole" class="form-input select-input">
+            <option value="OPERADOR">OPERADOR — Registro de itens e etiquetas</option>
+            <option value="GESTOR">GESTOR — Edição, exclusão e gestão de lotes</option>
+            <option value="ADMIN">ADMIN — Acesso total e gestão de usuários</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="usuarioFormSenhaLabel">Senha de Acesso *</label>
+          <input type="password" id="usuarioFormSenha" class="form-input" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          <span id="usuarioFormSenhaHint" style="font-size:11px; color:var(--text-muted); margin-top:3px; display:none">Deixe em branco se não quiser alterar a senha atual</span>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+          <input type="checkbox" id="usuarioFormAtivo" checked style="width:18px; height:18px; cursor:pointer;">
+          <label for="usuarioFormAtivo" style="margin:0; cursor:pointer; font-size:14px; text-transform:none;">Usuário Ativo (permite login no sistema)</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('modalUsuarioForm')">Cancelar</button>
+        <button class="btn-primary" id="btnSalvarUsuario" onclick="salvarUsuario()">Salvar Usuário</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       OVERLAY DE LOGIN PADRÃO (PRINCESA DOS CAMPOS)
+       ========================================== -->
+  <div class="login-overlay" id="loginOverlay" style="display:none">
+    <div class="login-modal-card" onclick="event.stopPropagation()">
+      <div class="login-top-accent"></div>
+
+      <div class="login-brand">
+        <img src="logo.png" alt="Princesa dos Campos" class="login-logo">
+      </div>
+
+      <!-- ========== VISÃO 1: LOGIN ========== -->
+      <div id="loginViewLogin">
+        <div class="login-header">
+          <h2 class="login-title">Controle de Avarias</h2>
+          <p class="login-subtitle">Acesso seguro ao Controle de Avarias e Sobras</p>
+        </div>
+
+        <div class="login-alert-warning" id="loginExpiredMsg" style="display:none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:1px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span><strong>Sessão Expirada:</strong> Por motivos de segurança, você foi desconectado. Faça login novamente.</span>
+        </div>
+
+        <div class="login-alert-error" id="loginErrorMsg" style="display:none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="loginErrorText"></span>
+        </div>
+
+        <form onsubmit="realizarLogin(event)" class="login-form">
+          <div class="login-input-group">
+            <label class="login-label" for="modal-username">Usuário ou E-mail</label>
+            <div class="login-input-wrapper">
+              <svg class="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <input id="modal-username" type="text" autocomplete="username" class="login-input" placeholder="Digite seu usuário" required autofocus />
+            </div>
+          </div>
+
+          <div class="login-input-group">
+            <label class="login-label" for="modal-password">Senha de Acesso</label>
+            <div class="login-input-wrapper">
+              <svg class="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <input id="modal-password" type="password" autocomplete="current-password" class="login-input" placeholder="••••••••" required />
+              <button type="button" class="login-toggle-pass-btn" onclick="toggleMostrarSenha('modal-password','iconEye','iconEyeOff')" aria-label="Ver senha">
+                <svg id="iconEye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg id="iconEyeOff" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="login-btn-submit" id="btnLoginSubmit">
+            <span id="btnSubmitText">Acessar o Sistema</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+
+        <p class="login-footer-note">
+          Novo usuário? A senha padrão inicial é <strong>Princesa123</strong>.<br>
+          Você será solicitado a alterá-la no primeiro acesso.
+        </p>
+      </div>
+
+      <!-- ========== VISÃO 2: TROCA OBRIGATÓRIA DE SENHA ========== -->
+      <div id="loginViewTroca" style="display:none">
+        <div class="login-header">
+          <h2 class="login-title">Defina sua nova senha</h2>
+          <p class="login-subtitle">Olá, <strong id="trocaNomeUsuario"></strong>. Crie uma senha pessoal para continuar.</p>
+        </div>
+
+        <div class="login-alert-warning">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:1px;">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span><strong>Troca obrigatória:</strong> por segurança, você precisa substituir a senha padrão antes de acessar o sistema.</span>
+        </div>
+
+        <div class="login-alert-error" id="trocaErrorMsg" style="display:none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="trocaErrorText"></span>
+        </div>
+
+        <form onsubmit="confirmarTrocaObrigatoria(event)" class="login-form">
+          <div class="login-input-group">
+            <label class="login-label" for="troca-nova">Nova Senha</label>
+            <div class="login-input-wrapper">
+              <svg class="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <input id="troca-nova" type="password" autocomplete="new-password" class="login-input" placeholder="Mínimo 6 caracteres" required />
+              <button type="button" class="login-toggle-pass-btn" onclick="toggleMostrarSenha('troca-nova','iconEyeTroca','iconEyeOffTroca')" aria-label="Ver senha">
+                <svg id="iconEyeTroca" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg id="iconEyeOffTroca" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="login-input-group">
+            <label class="login-label" for="troca-confirmar">Confirmar Nova Senha</label>
+            <div class="login-input-wrapper">
+              <svg class="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 12l2 2 4-4"></path>
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+              <input id="troca-confirmar" type="password" autocomplete="new-password" class="login-input" placeholder="Repita a nova senha" required />
+            </div>
+          </div>
+
+          <button type="submit" class="login-btn-submit" id="btnTrocaSubmit">
+            <span id="btnTrocaText">Salvar e Entrar</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+
+        <p class="login-footer-note">
+          <a href="#" onclick="cancelarTrocaObrigatoria(event)" class="login-link">← Voltar ao login</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=40"></script>
+  <script src="app.js?v=46"></script>
   <script src="lotes_sse.js?v=8"></script>
 </body>
 </html>

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 const { v4: uuidv4 } = require('uuid');
+const { authMiddleware } = require('../lib/auth');
 
 // GET /api/movimentacoes - Listar movimentações
 router.get('/', async (req, res) => {
@@ -26,7 +27,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/movimentacoes - Registrar saída de item
-router.post('/saida', async (req, res) => {
+router.post('/saida', authMiddleware, async (req, res) => {
   try {
     const { itemId, motivo, destino, quantidade, usuario, observacao } = req.body;
 

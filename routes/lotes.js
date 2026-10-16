@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 const { v4: uuidv4 } = require('uuid');
+const { authMiddleware, requireRole } = require('../lib/auth');
 
 // Gerar código de lote
 async function gerarCodigoLote() {
@@ -74,20 +75,21 @@ router.get('/codigo/:codigo', async (req, res) => {
   }
 });
 
-// POST /api/lotes — criar lote
-router.post('/', async (req, res) => {
+// POST /api/lotes — criar lote (Apenas GESTOR e ADMIN)
+router.post('/', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const { nome, usuario, observacao } = req.body;
     if (!nome) return res.status(400).json({ error: 'Nome do lote é obrigatório' });
 
     const codigo = await gerarCodigoLote();
+    const responsavel = req.user?.nome || usuario || 'Gestor';
 
     const lote = await prisma.lote.create({
       data: {
         id: uuidv4(),
         codigo,
         nome,
-        usuario,
+        usuario: responsavel,
         observacao,
         status: 'ABERTO'
       },
@@ -100,8 +102,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// POST /api/lotes/:id/itens — adicionar item ao lote
-router.post('/:id/itens', async (req, res) => {
+// POST /api/lotes/:id/itens — adicionar item ao lote (Apenas GESTOR e ADMIN)
+router.post('/:id/itens', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const { itemId, itemCodigo } = req.body;
 
@@ -133,8 +135,8 @@ router.post('/:id/itens', async (req, res) => {
   }
 });
 
-// DELETE /api/lotes/:id/itens/:itemId — remover item do lote
-router.delete('/:id/itens/:itemId', async (req, res) => {
+// DELETE /api/lotes/:id/itens/:itemId — remover item do lote (Apenas GESTOR e ADMIN)
+router.delete('/:id/itens/:itemId', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const lote = await prisma.lote.findUnique({ where: { id: req.params.id } });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
@@ -151,8 +153,8 @@ router.delete('/:id/itens/:itemId', async (req, res) => {
   }
 });
 
-// POST /api/lotes/:id/fechar — fechar lote e mover itens para "Lotes Fechados"
-router.post('/:id/fechar', async (req, res) => {
+// POST /api/lotes/:id/fechar — fechar lote e mover itens para "Lotes Fechados" (Apenas GESTOR e ADMIN)
+router.post('/:id/fechar', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const { usuario } = req.body;
     const lote = await prisma.lote.findUnique({
@@ -184,6 +186,7 @@ router.post('/:id/fechar', async (req, res) => {
     }
 
     const localizacaoLotesId = setorLotes.localizacoes[0].id;
+    const responsavel = req.user?.nome || usuario || 'Gestor';
 
     // Fechar o lote
     const loteFechado = await prisma.lote.update({
@@ -209,7 +212,7 @@ router.post('/:id/fechar', async (req, res) => {
           motivo: 'LOTE_FECHADO',
           destino: `Lote ${lote.codigo} — ${lote.nome}`,
           quantidade: item.quantidade,
-          usuario: usuario || 'Sistema',
+          usuario: responsavel,
           observacao: `Item movido para Lotes Fechados`
         }
       });
@@ -226,8 +229,8 @@ router.post('/:id/fechar', async (req, res) => {
   }
 });
 
-// POST /api/lotes/:id/saida — registrar saída de todos os itens do lote
-router.post('/:id/saida', async (req, res) => {
+// POST /api/lotes/:id/saida — registrar saída de todos os itens do lote (Apenas GESTOR e ADMIN)
+router.post('/:id/saida', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const { motivo, destino, usuario, observacao } = req.body;
     if (!motivo) return res.status(400).json({ error: 'Motivo é obrigatório' });
@@ -238,6 +241,8 @@ router.post('/:id/saida', async (req, res) => {
     });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
     if (lote.itens.length === 0) return res.status(400).json({ error: 'Nenhum item em estoque neste lote' });
+
+    const responsavel = req.user?.nome || usuario || 'Gestor';
 
     // Dar saída em todos os itens
     for (const item of lote.itens) {
@@ -253,7 +258,7 @@ router.post('/:id/saida', async (req, res) => {
           motivo: motivo || 'LOTE_SAIDA',
           destino: destino || `Lote ${lote.codigo}`,
           quantidade: item.quantidade,
-          usuario: usuario || 'Sistema',
+          usuario: responsavel,
           observacao: observacao || `Saída em lote: ${lote.nome}`
         }
       });
@@ -265,8 +270,8 @@ router.post('/:id/saida', async (req, res) => {
   }
 });
 
-// DELETE /api/lotes/:id — excluir lote (apenas abertos sem itens)
-router.delete('/:id', async (req, res) => {
+// DELETE /api/lotes/:id — excluir lote (Apenas GESTOR e ADMIN)
+router.delete('/:id', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const lote = await prisma.lote.findUnique({
       where: { id: req.params.id },

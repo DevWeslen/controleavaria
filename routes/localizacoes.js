@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 const { v4: uuidv4 } = require('uuid');
+const { authMiddleware, requireRole } = require('../lib/auth');
 
 // GET /api/localizacoes
 router.get('/', async (req, res) => {
@@ -22,7 +23,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/localizacoes
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const { codigo, descricao, tipo, setorId, posicaoX, posicaoY, posicaoZ, capacidade } = req.body;
     const loc = await prisma.localizacao.create({
@@ -36,7 +37,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE /api/localizacoes/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     // Check if there are items in this location
     const count = await prisma.item.count({ where: { localizacaoId: req.params.id, status: 'ESTOQUE' } });

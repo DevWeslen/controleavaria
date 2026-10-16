@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../lib/prisma');
 const { v4: uuidv4 } = require('uuid');
+const { authMiddleware, requireRole } = require('../lib/auth');
 
 // GET /api/setores
 router.get('/', async (req, res) => {
@@ -25,7 +26,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/setores
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, requireRole('ADMIN', 'GESTOR'), async (req, res) => {
   try {
     const { nome, descricao, cor, posicaoX, posicaoY, largura, altura } = req.body;
     const setor = await prisma.setor.create({

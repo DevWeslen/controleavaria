@@ -9,6 +9,8 @@ const setorRoutes = require('./routes/setores');
 const localizacaoRoutes = require('./routes/localizacoes');
 const etiquetaRoutes = require('./routes/etiquetas');
 const loteRoutes = require('./routes/lotes');
+const authRoutes = require('./routes/auth');
+const usuarioRoutes = require('./routes/usuarios');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +60,18 @@ app.get('/api/events', (req, res) => {
   });
 });
 
+// Bloqueia a API enquanto o usuario nao trocar a senha obrigatoria
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth')) return next();
+  const h = req.headers.authorization || '';
+  const t = h.startsWith('Bearer ') ? h.substring(7).trim() : req.query.token;
+  const d = t ? require('./lib/auth').verifyToken(t) : null;
+  if (d && d.mcp) {
+    return res.status(403).json({ error: 'Troca de senha obrigat\u00f3ria antes de continuar.', code: 'PASSWORD_CHANGE_REQUIRED' });
+  }
+  next();
+});
+
 // API Routes
 app.use('/api/items', itemRoutes);
 app.use('/api/movimentacoes', movimentacaoRoutes);
@@ -65,6 +79,8 @@ app.use('/api/setores', setorRoutes);
 app.use('/api/localizacoes', localizacaoRoutes);
 app.use('/api/etiquetas', etiquetaRoutes);
 app.use('/api/lotes', loteRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', usuarioRoutes);
 
 // Rota de saúde da API
 app.get('/api/health', (req, res) => {

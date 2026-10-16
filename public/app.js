@@ -9,7 +9,6 @@ let allSetores = [];
 let allLocalizacoes = [];
 let currentItemForModal = null;
 
-// =====================
 // NAVEGAÇÃO
 // =====================
 function navigateTo(page) {
@@ -28,11 +27,20 @@ function navigateTo(page) {
     mapa: 'Mapa 3D do Barracão',
     estoque: 'Estoque',
     cadastrar: 'Cadastrar Item',
-    movimentacoes: 'Movimentações'
+    movimentacoes: 'Movimentações',
+    lotes: 'Lotes de Itens',
+    usuarios: 'Gestão de Usuários'
   }[page] || page;
 
   const searchWrapper = document.getElementById('searchWrapper');
   searchWrapper.style.display = page === 'estoque' ? 'flex' : 'none';
+
+  // Bloquear acesso à página de usuários se não for ADMIN
+  if (page === 'usuarios' && (!currentUser || currentUser.role !== 'ADMIN')) {
+    showToast('Acesso restrito: apenas Administradores podem acessar esta tela.', 'warning');
+    navigateTo('mapa');
+    return;
+  }
 
   // Carregar dados da página
   if (page === 'dashboard') loadDashboard();
@@ -40,6 +48,7 @@ function navigateTo(page) {
   else if (page === 'estoque') loadEstoque();
   else if (page === 'movimentacoes') loadMovimentacoes();
   else if (page === 'lotes') loadLotes();
+  else if (page === 'usuarios') loadUsuarios();
 
   // Fechar sidebar no mobile ou esconder no modo mapa
   if (window.innerWidth <= 768 || page === 'mapa') {
@@ -120,11 +129,26 @@ function showToast(message, type = 'info') {
 // =====================
 async function apiFetch(path, options = {}) {
   try {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    const token = localStorage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
       ...options,
+      headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
+
+    if (res.status === 401 && !path.startsWith('/auth/login')) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      currentUser = null;
+      mostrarTelaLogin(true);
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -153,29 +177,189 @@ async function checkConnection() {
 }
 
 // =====================
+// UNIDADES DE MEDIDA (UN / CX)
+// =====================
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('pt-BR');
+}
+
+// Texto curto: "3 un" | "2 cx (12 un/cx = 24 un)"
+function formatQtd(item, qtd) {
+  const q = Number(qtd !== undefined ? qtd : item?.quantidade) || 0;
+  if (item?.unidadeMedida === 'CX') {
+    const ipc = item.itensPorCaixa;
+    return ipc
+      ? `${fmtNum(q)} cx (${fmtNum(ipc)} un/cx = ${fmtNum(q * ipc)} un)`
+      : `${fmtNum(q)} cx`;
+  }
+  return `${fmtNum(q)} un`;
+}
+
+// HTML em duas linhas: valor principal + detalhe de unidades por caixa
+function qtdHtml(item, qtd) {
+  const q = Number(qtd !== undefined ? qtd : item?.quantidade) || 0;
+  if (item?.unidadeMedida === 'CX') {
+    const ipc = item.itensPorCaixa;
+    const sub = ipc
+      ? `${fmtNum(ipc)} un por caixa &middot; ${fmtNum(q * ipc)} un no total`
+      : 'un por caixa não informado';
+    return `<span class="qtd-main">${fmtNum(q)} cx</span><span class="qtd-sub">${sub}</span>`;
+  }
+  return `<span class="qtd-main">${fmtNum(q)} un</span>`;
+}
+
+// Resumo de um bucket do dashboard: "2 cx · 5 un · 29 un no total"
+function bucketResumo(b) {
+  if (!b || (!b.caixas && !b.unidadesAvulsas)) return 'nenhuma unidade';
+  const partes = [];
+  if (b.caixas) partes.push(`${fmtNum(b.caixas)} cx`);
+  if (b.unidadesAvulsas) partes.push(`${fmtNum(b.unidadesAvulsas)} un avulsas`);
+  partes.push(`${fmtNum(b.totalUnidades)} un no total`);
+  return partes.join(' &middot; ');
+}
+
+function dashCellsBucket(b) {
+  return `
+    <td>${fmtNum(b.registros)}</td>
+    <td>${fmtNum(b.caixas)}</td>
+    <td>${fmtNum(b.unidadesAvulsas)}</td>
+    <td>${fmtNum(b.unidadesEmCaixas)}</td>
+    <td><strong>${fmtNum(b.totalUnidades)}</strong></td>`;
+}
+
+function dashTabela(headers, rowsHtml, vazio = 'Sem dados ainda') {
+  if (!rowsHtml) return `<div class="empty-state"><p>${vazio}</p></div>`;
+  return `
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead><tr>${headers.map((h, i) => `<th${i ? ' class="num"' : ''}>${h}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
+const DASH_COLS = ['Registros', 'Caixas', 'Un. avulsas', 'Un. em caixas', 'Total (un)'];
+const MOTIVOS_LABEL = {
+  DESCARTE: 'Descarte', VENDA: 'Venda', RETIRADA: 'Retirada',
+  ENCAMINHADO_UNIDADE: 'Encaminhado p/ unidade', TRANSFERENCIA: 'Transferência',
+  LOTE_SAIDA: 'Saída de lote', OUTROS: 'Outros'
+};
+
+// =====================
 // DASHBOARD
 // =====================
 async function loadDashboard() {
   try {
     const stats = await apiFetch('/items/stats/dashboard');
+    const r = stats.resumo;
+    const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    document.getElementById('statTotal').textContent = stats.total;
-    document.getElementById('statEstoque').textContent = stats.emEstoque;
-    
-    // Format saidas breakdown
-    let saidasHtml = `${stats.saidos}`;
-    if (stats.saidasAgrupadas && stats.saidasAgrupadas.length > 0) {
-      const breakdown = stats.saidasAgrupadas.map(g => {
-        const motivo = g.motivo || 'Outros';
-        const qtd = g._sum.quantidade || 0;
-        return `<div style="font-size:10px; margin-top:4px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.1)">
-          <span style="color:#aaa">${motivo}</span>
-          <strong>${qtd}</strong>
-        </div>`;
-      }).join('');
-      saidasHtml += `<div style="margin-top:8px; width:100%; display:block">${breakdown}</div>`;
-    }
-    document.getElementById('statSaiu').innerHTML = saidasHtml;
+    // Cards do topo
+    document.getElementById('statTotal').textContent = fmtNum(r.registros.total);
+    document.getElementById('statTotalSub').innerHTML = `<div>Entradas: ${bucketResumo(r.entradas)}</div>`;
+    document.getElementById('statEstoque').textContent = fmtNum(r.registros.emEstoque);
+    document.getElementById('statEstoqueSub').innerHTML =
+      `<div>${bucketResumo(r.estoque)}</div>` +
+      (r.estoque.caixasSemInfo ? `<div class="stat-sub-warn">${fmtNum(r.estoque.caixasSemInfo)} cx sem "un por caixa"</div>` : '');
+    document.getElementById('statSaiu').textContent = fmtNum(r.registros.saidos);
+    document.getElementById('statSaiuSub').innerHTML = `<div>Saídas: ${bucketResumo(r.saidas)}</div>`;
+
+    // Posição geral (estoque x entradas x saídas)
+    const linhas = [
+      ['Registros / movimentações', 'registros'],
+      ['Caixas (cx)', 'caixas'],
+      ['Unidades avulsas (un)', 'unidadesAvulsas'],
+      ['Unidades dentro de caixas', 'unidadesEmCaixas'],
+      ['Total em unidades', 'totalUnidades']
+    ];
+    document.getElementById('dashPosicaoGeral').innerHTML = dashTabela(
+      ['Métrica', 'Em estoque', 'Entradas (histórico)', 'Saídas (histórico)'],
+      linhas.map(([label, key]) => {
+        const forte = key === 'totalUnidades';
+        const f = (v) => forte ? `<strong>${fmtNum(v)}</strong>` : fmtNum(v);
+        return `<tr${forte ? ' class="dash-total-row"' : ''}><td>${label}</td>
+          <td class="num">${f(r.estoque[key])}</td>
+          <td class="num">${f(r.entradas[key])}</td>
+          <td class="num">${f(r.saidas[key])}</td></tr>`;
+      }).join('')
+    );
+
+    // Estoque por setor
+    const setoresDet = stats.setoresDetalhado || [];
+    document.getElementById('statSetores').textContent = fmtNum(setoresDet.filter(s => s.id).length);
+    document.getElementById('statSetoresSub').innerHTML =
+      `<div>${fmtNum(setoresDet.reduce((a, s) => a + s.paletes, 0))} paletes / localizações</div>`;
+    document.getElementById('dashPorSetor').innerHTML = dashTabela(
+      ['Setor', ...DASH_COLS],
+      setoresDet.map(s => `<tr>
+        <td><span class="dash-dot" style="background:${s.cor}"></span>${s.nome}</td>
+        ${dashCellsBucket(s).replace(/<td>/g, '<td class="num">')}
+      </tr>`).join('')
+    );
+
+    // Movimentação por período
+    const per = stats.periodos;
+    const nomesPeriodo = { hoje: 'Hoje', ultimos7dias: 'Últimos 7 dias', ultimos30dias: 'Últimos 30 dias' };
+    document.getElementById('dashPeriodos').innerHTML = dashTabela(
+      ['Período', 'Entradas', 'Saídas', 'Transferências'],
+      Object.keys(nomesPeriodo).map(k => `<tr>
+        <td>${nomesPeriodo[k]}</td>
+        <td class="num">${bucketResumo(per[k].entradas).replace('nenhuma unidade', '—')}</td>
+        <td class="num">${bucketResumo(per[k].saidas).replace('nenhuma unidade', '—')}</td>
+        <td class="num">${fmtNum(per[k].transferencias)}</td>
+      </tr>`).join('')
+    );
+
+    // Saídas por motivo
+    document.getElementById('dashSaidasMotivo').innerHTML = dashTabela(
+      ['Motivo', 'Mov.', 'Caixas', 'Un. avulsas', 'Total (un)'],
+      (stats.saidasPorMotivo || []).map(m => `<tr>
+        <td>${MOTIVOS_LABEL[m.motivo] || m.motivo}</td>
+        <td class="num">${fmtNum(m.registros)}</td>
+        <td class="num">${fmtNum(m.caixas)}</td>
+        <td class="num">${fmtNum(m.unidadesAvulsas)}</td>
+        <td class="num"><strong>${fmtNum(m.totalUnidades)}</strong></td>
+      </tr>`).join(''),
+      'Nenhuma saída registrada'
+    );
+
+    // Motivos de avaria
+    document.getElementById('dashMotivosAvaria').innerHTML = dashTabela(
+      ['Motivo', 'Registros', 'Caixas', 'Un. avulsas', 'Total (un)'],
+      (stats.motivosAvaria || []).map(m => `<tr>
+        <td>${m.motivo}</td>
+        <td class="num">${fmtNum(m.registros)}</td>
+        <td class="num">${fmtNum(m.caixas)}</td>
+        <td class="num">${fmtNum(m.unidadesAvulsas)}</td>
+        <td class="num"><strong>${fmtNum(m.totalUnidades)}</strong></td>
+      </tr>`).join(''),
+      'Nenhum item em estoque'
+    );
+
+    // Top produtos
+    document.getElementById('dashTopProdutos').innerHTML = dashTabela(
+      ['Produto', 'Registros', 'Caixas', 'Un. avulsas', 'Total (un)'],
+      (stats.topProdutos || []).map(p => `<tr>
+        <td>${p.nome}</td>
+        <td class="num">${fmtNum(p.registros)}</td>
+        <td class="num">${fmtNum(p.caixas)}</td>
+        <td class="num">${fmtNum(p.unidadesAvulsas)}</td>
+        <td class="num"><strong>${fmtNum(p.totalUnidades)}</strong></td>
+      </tr>`).join(''),
+      'Nenhum item em estoque'
+    );
+
+    // Lotes e valores
+    const lv = stats.lotes, v = stats.valores;
+    document.getElementById('dashLotesValores').innerHTML = `
+      ${dashTabela(['Estoque', ...DASH_COLS],
+        `<tr><td>Dentro de lotes</td>${dashCellsBucket(lv.comLote).replace(/<td>/g, '<td class="num">')}</tr>
+         <tr><td>Sem lote</td>${dashCellsBucket(lv.semLote).replace(/<td>/g, '<td class="num">')}</tr>`)}
+      <div class="dash-valores">
+        <div><span>Valor NF (soma dos registros)</span><strong>${brl(v.valorNf)}</strong></div>
+        <div><span>Valor Internet (soma dos registros)</span><strong>${brl(v.valorInternet)}</strong></div>
+        <div><span>Sugestão de venda</span><strong>${brl(v.sugestao)}</strong></div>
+      </div>`;
 
     // Barras de ocupação por setor
     const ocupacaoEl = document.getElementById('setoresOcupacao');
@@ -196,7 +380,7 @@ async function loadDashboard() {
         <div class="setor-bar-item">
           <div class="setor-bar-header">
             <span class="setor-bar-name" style="color:${s.cor}">${s.nome}</span>
-            <span class="setor-bar-count">${totalItens} itens / ${capacidade} capacidade</span>
+            <span class="setor-bar-count">${totalItens} registros / ${capacidade} capacidade</span>
           </div>
           <div class="setor-bar-track">
             <div class="setor-bar-fill" style="width:${pct}%;background:${s.cor}"></div>
@@ -220,7 +404,7 @@ async function loadDashboard() {
         <div class="mov-info">
           <div class="mov-info-nome">${m.item?.nome || 'Item desconhecido'}</div>
           <div class="mov-info-meta">
-            ${m.tipo} • ${m.motivo || ''} • ${formatDate(m.createdAt)}
+            ${m.tipo} • ${m.item ? formatQtd(m.item, m.quantidade) : m.quantidade} • ${MOTIVOS_LABEL[m.motivo] || m.motivo || ''} • ${formatDate(m.createdAt)}
           </div>
         </div>
       </div>
@@ -1095,10 +1279,12 @@ function showPaletePanel(palete) {
   const totalSectorItens = uniqueItems.length;
 
   let sectorTotalNf = 0;
+  let secCx = 0, secUn = 0, secUnEmCx = 0;
   let sectorTotalInternet = 0;
   let sectorTotalSugestao = 0;
 
   for (const i of uniqueItems) {
+    if (i.unidadeMedida === 'CX') { secCx += i.quantidade; secUnEmCx += i.quantidade * (i.itensPorCaixa || 0); } else { secUn += i.quantidade; }
     sectorTotalNf += i.valorNf || 0;
     sectorTotalInternet += i.valorInternet || 0;
     sectorTotalSugestao += i.sugestao || 0;
@@ -1113,6 +1299,7 @@ function showPaletePanel(palete) {
       <div style="font-size:11px; color:#aaa; margin-bottom:5px; text-transform:uppercase">📊 KPIs do Setor: ${palete.setor?.nome}</div>
       <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:8px">
         <div>Itens no setor: <strong>${totalSectorItens}</strong></div>
+        <div style="text-align:right">Caixas: <strong>${secCx}</strong> · Un. avulsas: <strong>${secUn}</strong> · Total: <strong>${secUn + secUnEmCx} un</strong></div>
       </div>
       <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
         <div style="display:flex; justify-content:space-between;"><span>Valor NF Total:</span> <strong>${fNf}</strong></div>
@@ -1143,7 +1330,7 @@ function showPaletePanel(palete) {
           <div class="panel-item-name">${item.nome}</div>
           <div style="font-size:11px;color:var(--text-muted);font-family:monospace">${item.codigo}</div>
         </div>
-        <div class="panel-item-qty">Qtd: <strong>${item.quantidade}</strong></div>
+        <div class="panel-item-qty">${qtdHtml(item)}</div>
         <button class="btn-primary-small" onclick="showItemDetails('${item.id}')">Ver</button>
       </div>
     `).join('');
@@ -1235,7 +1422,7 @@ function renderItemsGrid(items) {
         <div style="font-size:12px;color:var(--text-muted)">📍 ${local}</div>
         ${item.motivoAvaria ? `<div style="font-size:11px;color:#EF4444;margin-top:4px">⚠️ ${item.motivoAvaria}</div>` : ''}
         <div class="item-card-footer">
-          <div class="item-card-qtd">Qtd: <strong>${item.quantidade}</strong></div>
+          <div class="item-card-qtd">${qtdHtml(item)}</div>
           <span class="item-status-badge ${status}">${statusLabel}</span>
         </div>
       </div>
@@ -1360,7 +1547,7 @@ async function submitCadastro(e) {
         <strong style="color:white;font-size:16px;">${item.nome}</strong><br>
         <span style="color:var(--primary);">Código: ${item.codigo}</span><br>
         Localização: ${item.localizacao?.codigo || '—'}<br>
-        Quantidade: ${item.quantidade}
+        Quantidade: ${formatQtd(item)}
       `;
       document.getElementById('modalRegistrationSuccess').style.display = 'flex';
     }, 600);
@@ -1430,7 +1617,7 @@ async function imprimirEtiqueta() {
   try {
     const res = await fetch(`${API}/etiquetas/gerar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') },
       body: JSON.stringify({ itemIds: [currentItemIdForEtiqueta] })
     });
 
@@ -1504,7 +1691,7 @@ async function loadMovimentacoes() {
           </td>
           <td style="font-size:12px;color:var(--text-secondary)">${m.item?.localizacao?.codigo || '—'}</td>
           <td style="font-size:12px">${motivos[m.motivo] || m.motivo || '—'}</td>
-          <td style="font-weight:600">${m.quantidade}</td>
+          <td style="font-weight:600">${m.item ? formatQtd(m.item, m.quantidade) : m.quantidade}</td>
           <td style="font-size:12px;color:var(--text-muted)">${m.usuario || '—'}</td>
         </tr>
       `;
@@ -1560,7 +1747,7 @@ async function showItemDetails(id) {
         </div>
         <div class="detail-field">
           <label>Quantidade</label>
-          <span style="font-size:20px;font-weight:700">${quantidadeAgrupada}</span>
+          <span style="font-size:20px;font-weight:700">${qtdHtml(item, quantidadeAgrupada)}</span>
         </div>
         <div class="detail-field">
           <label>Localização</label>
@@ -1644,6 +1831,13 @@ async function showItemDetails(id) {
     const btnSaida = document.getElementById('btnSaidaModal');
     btnSaida.style.display = item.status === 'ESTOQUE' ? 'flex' : 'none';
 
+    // Permissões: Apenas Gestor e Admin podem editar e excluir itens do estoque
+    const isGestorOrAdmin = currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'GESTOR');
+    const btnEdit = document.getElementById('btnEditarItemModal');
+    const btnDel = document.getElementById('btnExcluirItemModal');
+    if (btnEdit) btnEdit.style.display = isGestorOrAdmin ? 'inline-flex' : 'none';
+    if (btnDel) btnDel.style.display = isGestorOrAdmin ? 'inline-flex' : 'none';
+
   } catch (e) {
     body.innerHTML = `<p style="color:var(--danger)">Erro ao carregar: ${e.message}</p>`;
   }
@@ -1662,14 +1856,16 @@ function abrirSaidaDoModal() {
     }
   }
   
-  abrirModalSaida(currentItemForModal.id, currentItemForModal.nome, quantidadeAgrupada);
+  abrirModalSaida(currentItemForModal.id, currentItemForModal.nome, quantidadeAgrupada, currentItemForModal);
 }
 
-function abrirModalSaida(id, nome, qtdMax) {
+function abrirModalSaida(id, nome, qtdMax, item = null) {
   document.getElementById('modalItemId').value = id;
   document.getElementById('modalItemNome').textContent = nome;
   document.getElementById('modalQtd').max = qtdMax;
   document.getElementById('modalQtd').value = qtdMax;
+  const hint = document.getElementById('modalQtdHint');
+  if (hint) hint.textContent = item ? ('Disponível: ' + formatQtd(item, qtdMax) + ' — informe a quantidade em ' + (item.unidadeMedida === 'CX' ? 'caixas' : 'unidades')) : '';
   document.getElementById('modalSaida').style.display = 'flex';
 }
 
@@ -1743,12 +1939,573 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// ===================================
+// AUTENTICAÇÃO E CONTROLE DE ACESSO
+// ===================================
+let currentUser = null;
+let showPasswordState = false;
+
+function toggleMostrarSenha(inputId = 'modal-password', eyeId = 'iconEye', eyeOffId = 'iconEyeOff') {
+  const input = document.getElementById(inputId);
+  const eye = document.getElementById(eyeId);
+  const eyeOff = document.getElementById(eyeOffId);
+  if (!input) return;
+  const mostrar = input.type === 'password';
+  input.type = mostrar ? 'text' : 'password';
+  if (eye) eye.style.display = mostrar ? 'none' : 'block';
+  if (eyeOff) eyeOff.style.display = mostrar ? 'block' : 'none';
+}
+
+function mostrarTelaLogin(sessaoExpirada = false) {
+  const overlay = document.getElementById('loginOverlay');
+  const err = document.getElementById('loginErrorMsg');
+  const expired = document.getElementById('loginExpiredMsg');
+  if (err) err.style.display = 'none';
+  if (expired) expired.style.display = sessaoExpirada === true ? 'flex' : 'none';
+  const viewLogin = document.getElementById('loginViewLogin');
+  const viewTroca = document.getElementById('loginViewTroca');
+  if (viewLogin) viewLogin.style.display = 'block';
+  if (viewTroca) viewTroca.style.display = 'none';
+  senhaTemporariaLogin = null;
+  if (overlay) overlay.style.display = 'flex';
+  const passInput = document.getElementById('modal-password');
+  if (passInput) { passInput.value = ''; passInput.type = 'password'; }
+  const userInput = document.getElementById('modal-username');
+  if (userInput) userInput.focus();
+}
+
+// Troca obrigatória de senha (primeiro acesso)
+let senhaTemporariaLogin = null;
+
+function mostrarTrocaObrigatoria(user) {
+  const overlay = document.getElementById('loginOverlay');
+  document.getElementById('loginViewLogin').style.display = 'none';
+  document.getElementById('loginViewTroca').style.display = 'block';
+  document.getElementById('trocaNomeUsuario').textContent = (user && user.nome) || '';
+  document.getElementById('trocaErrorMsg').style.display = 'none';
+  document.getElementById('troca-nova').value = '';
+  document.getElementById('troca-confirmar').value = '';
+  if (overlay) overlay.style.display = 'flex';
+  setTimeout(() => document.getElementById('troca-nova').focus(), 50);
+}
+
+function cancelarTrocaObrigatoria(e) {
+  if (e) e.preventDefault();
+  localStorage.removeItem('token');
+  localStorage.removeItem('usuario');
+  currentUser = null;
+  mostrarTelaLogin(false);
+}
+
+async function confirmarTrocaObrigatoria(e) {
+  if (e) e.preventDefault();
+  const nova = document.getElementById('troca-nova').value;
+  const confirmar = document.getElementById('troca-confirmar').value;
+  const errBox = document.getElementById('trocaErrorMsg');
+  const errText = document.getElementById('trocaErrorText');
+  const btn = document.getElementById('btnTrocaSubmit');
+  const btnText = document.getElementById('btnTrocaText');
+
+  const falhar = (msg) => { errText.textContent = msg; errBox.style.display = 'flex'; };
+  errBox.style.display = 'none';
+
+  if (nova.length < 6) return falhar('A nova senha deve ter no mínimo 6 caracteres.');
+  if (nova === 'Princesa123') return falhar('Escolha uma senha diferente da senha padrão.');
+  if (nova !== confirmar) return falhar('A confirmação não coincide com a nova senha.');
+  if (!senhaTemporariaLogin) return falhar('Sessão de troca expirada. Volte ao login e entre novamente.');
+
+  try {
+    btn.disabled = true;
+    btnText.textContent = 'Salvando...';
+    const data = await apiFetch('/auth/senha', {
+      method: 'PUT',
+      body: { senhaAtual: senhaTemporariaLogin, novaSenha: nova }
+    });
+    if (data.token) localStorage.setItem('token', data.token);
+    senhaTemporariaLogin = null;
+    currentUser = { ...currentUser, mustChangePassword: false };
+    localStorage.setItem('usuario', JSON.stringify(currentUser));
+
+    ocultarTelaLogin();
+    aplicarPermissoesUI(currentUser);
+    showToast('Senha alterada com sucesso! Bem-vindo, ' + currentUser.nome + '.', 'success');
+    await initCadastrarForm();
+    navigateTo(currentPage || 'mapa');
+  } catch (err) {
+    falhar(err.message || 'Erro ao alterar a senha.');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Salvar e Entrar';
+  }
+}
+function fecharLoginSePossivel() {
+  if (currentUser) {
+    document.getElementById('loginOverlay').style.display = 'none';
+  }
+}
+
+function ocultarTelaLogin() {
+  const overlay = document.getElementById('loginOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function realizarLogin(e) {
+  if (e) e.preventDefault();
+  const usernameInput = document.getElementById('modal-username');
+  const passwordInput = document.getElementById('modal-password');
+  const btn = document.getElementById('btnLoginSubmit');
+  const btnText = document.getElementById('btnSubmitText');
+  const errorBox = document.getElementById('loginErrorMsg');
+  const errorText = document.getElementById('loginErrorText');
+
+  const username = usernameInput ? usernameInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
+
+  if (!username || !password) {
+    if (errorBox) {
+      errorText.textContent = 'Por favor, preencha usuário e senha.';
+      errorBox.style.display = 'flex';
+    }
+    return;
+  }
+
+  try {
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.textContent = 'Entrando...';
+    if (errorBox) errorBox.style.display = 'none';
+
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error || 'Falha na autenticação.');
+    }
+
+    const user = data.user || data.usuario;
+    const token = data.token;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('usuario', JSON.stringify(user));
+    currentUser = user;
+
+    if (user.mustChangePassword) {
+      senhaTemporariaLogin = password;
+      mostrarTrocaObrigatoria(user);
+      return;
+    }
+
+    ocultarTelaLogin();
+    aplicarPermissoesUI(user);
+    showToast(`Bem-vindo, ${user.nome}! (${user.role})`, 'success');
+
+    // Inicializar dados
+    await initCadastrarForm();
+    navigateTo(currentPage || 'mapa');
+
+  } catch (err) {
+    if (errorBox) {
+      errorText.textContent = err.message || 'Erro ao realizar login.';
+      errorBox.style.display = 'flex';
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = 'Acessar o Sistema';
+  }
+}
+
+function fazerLogout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('usuario');
+  currentUser = null;
+  aplicarPermissoesUI(null);
+  mostrarTelaLogin(false);
+  showToast('Você saiu do sistema.', 'info');
+}
+
+async function initAuth() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    mostrarTelaLogin(false);
+    return false;
+  }
+
+  try {
+    const user = await apiFetch('/auth/me');
+    if (user.mustChangePassword) {
+      // Reabriu com token de senha pendente: exigir novo login para trocar
+      throw new Error('Troca de senha pendente.');
+    }
+    currentUser = user;
+    localStorage.setItem('usuario', JSON.stringify(user));
+    aplicarPermissoesUI(user);
+    ocultarTelaLogin();
+    return true;
+  } catch (err) {
+    console.warn('Sessão expirada:', err);
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    currentUser = null;
+    mostrarTelaLogin(false);
+    return false;
+  }
+}
+
+function aplicarPermissoesUI(user) {
+  const profileHeader = document.getElementById('userProfileHeader');
+  const userNameEl = document.getElementById('userDisplayName');
+  const userRoleEl = document.getElementById('userRoleBadge');
+  const navUsuarios = document.getElementById('nav-usuarios');
+
+  if (!user) {
+    if (profileHeader) profileHeader.style.display = 'none';
+    if (navUsuarios) navUsuarios.style.display = 'none';
+    return;
+  }
+
+  if (profileHeader) profileHeader.style.display = 'flex';
+  if (userNameEl) userNameEl.textContent = user.nome || user.username || user.login;
+
+  if (userRoleEl) {
+    const role = user.role || 'OPERADOR';
+    userRoleEl.className = `role-badge role-${role.toLowerCase()}`;
+    const labels = {
+      ADMIN: 'ADMIN',
+      GESTOR: 'GESTOR',
+      OPERADOR: 'OPERADOR'
+    };
+    userRoleEl.textContent = labels[role] || role;
+  }
+
+  // Somente ADMIN visualiza a aba de Usuários
+  if (navUsuarios) {
+    navUsuarios.style.display = user.role === 'ADMIN' ? 'flex' : 'none';
+  }
+
+  // Lotes: controle visual de criação de lotes para Operadores
+  const cardNovoLote = document.getElementById('loteNome')?.closest('.card');
+  if (cardNovoLote) {
+    cardNovoLote.style.display = (user.role === 'ADMIN' || user.role === 'GESTOR') ? 'block' : 'none';
+  }
+}
+
+// ===================================
+// GESTÃO DE USUÁRIOS (APENAS ADMIN)
+// ===================================
+let allUsuarios = [];
+
+async function loadUsuarios() {
+  const tbody = document.getElementById('usuariosTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);"><div class="loading-spinner"></div> Carregando usuários...</td></tr>';
+
+  try {
+    const users = await apiFetch('/usuarios');
+    allUsuarios = users;
+    renderUsuariosTable(users);
+    const badge = document.getElementById('usuariosTotalBadge');
+    if (badge) badge.textContent = users.length;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--danger);">Erro ao carregar usuários: ${e.message}</td></tr>`;
+  }
+}
+
+function renderUsuariosTable(users) {
+  const tbody = document.getElementById('usuariosTableBody');
+  if (!tbody) return;
+
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-muted);">Nenhum usuário encontrado.</td></tr>';
+    return;
+  }
+
+  const roleLabels = {
+    ADMIN: '<span class="role-badge role-admin">ADMIN</span>',
+    GESTOR: '<span class="role-badge role-gestor">GESTOR</span>',
+    OPERADOR: '<span class="role-badge role-operador">OPERADOR</span>'
+  };
+
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>
+        <strong style="color:#fff;">${u.nome}</strong>
+        ${currentUser && currentUser.id === u.id ? '<span style="font-size:10px; color:var(--accent); margin-left:6px;">(você)</span>' : ''}
+      </td>
+      <td><code style="background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; font-size:12px;">${u.login}</code></td>
+      <td>${roleLabels[u.role] || u.role}</td>
+      <td>
+        <span class="user-status-pill ${u.ativo ? 'ativo' : 'inativo'}">
+          <span style="width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block;"></span>
+          ${u.ativo ? 'Ativo' : 'Inativo'}
+        </span>
+      </td>
+      <td style="color:var(--text-muted); font-size:12px;">${formatDateTime(u.createdAt)}</td>
+      <td style="text-align:right;">
+        <div class="table-actions" style="justify-content:flex-end;">
+          <button class="btn-icon-action" onclick="abrirModalUsuario('${u.id}')" title="Editar usuário">
+            ✏️ Editar
+          </button>
+          ${currentUser && currentUser.id !== u.id ? `
+            <button class="btn-icon-action danger" onclick="excluirUsuario('${u.id}', '${u.nome}')" title="Excluir usuário">
+              🗑️ Excluir
+            </button>
+          ` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Filtro de usuários
+document.getElementById('filtroUsuariosInput')?.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  if (!q) { renderUsuariosTable(allUsuarios); return; }
+  const filtered = allUsuarios.filter(u =>
+    (u.nome && u.nome.toLowerCase().includes(q)) ||
+    (u.login && u.login.toLowerCase().includes(q)) ||
+    (u.role && u.role.toLowerCase().includes(q))
+  );
+  renderUsuariosTable(filtered);
+});
+
+function abrirModalUsuario(id = null) {
+  const modal = document.getElementById('modalUsuarioForm');
+  const title = document.getElementById('modalUsuarioTitle');
+  const formId = document.getElementById('usuarioFormId');
+  const nome = document.getElementById('usuarioFormNome');
+  const login = document.getElementById('usuarioFormLogin');
+  const role = document.getElementById('usuarioFormRole');
+  const senha = document.getElementById('usuarioFormSenha');
+  const senhaLabel = document.getElementById('usuarioFormSenhaLabel');
+  const senhaHint = document.getElementById('usuarioFormSenhaHint');
+  const ativo = document.getElementById('usuarioFormAtivo');
+
+  if (id) {
+    const user = allUsuarios.find(u => u.id === id);
+    if (!user) return;
+    title.textContent = 'Editar Usuário';
+    formId.value = user.id;
+    nome.value = user.nome;
+    login.value = user.login;
+    role.value = user.role;
+    senha.value = '';
+    senha.required = false;
+    senhaLabel.textContent = 'Redefinir Senha (opcional)';
+    senhaHint.textContent = 'Deixe em branco para manter a senha atual. Se preencher, o usuário precisará trocá-la no próximo acesso.';
+    senhaHint.style.display = 'block';
+    ativo.checked = user.ativo;
+  } else {
+    title.textContent = 'Novo Usuário';
+    formId.value = '';
+    nome.value = '';
+    login.value = '';
+    role.value = 'OPERADOR';
+    senha.value = '';
+    senha.required = false;
+    senhaLabel.textContent = 'Senha Inicial (opcional)';
+    senhaHint.textContent = 'Em branco = senha padrão Princesa123. O usuário será obrigado a trocá-la no primeiro acesso.';
+    senhaHint.style.display = 'block';
+    ativo.checked = true;
+  }
+
+  modal.style.display = 'flex';
+  nome.focus();
+}
+
+async function salvarUsuario() {
+  const id = document.getElementById('usuarioFormId').value;
+  const nome = document.getElementById('usuarioFormNome').value.trim();
+  const login = document.getElementById('usuarioFormLogin').value.trim();
+  const role = document.getElementById('usuarioFormRole').value;
+  const senha = document.getElementById('usuarioFormSenha').value;
+  const ativo = document.getElementById('usuarioFormAtivo').checked;
+  const btn = document.getElementById('btnSalvarUsuario');
+
+  if (!nome || !login) {
+    showToast('Preencha o nome e o login do usuário.', 'warning');
+    return;
+  }
+
+  if (senha && senha.length < 6) {
+    showToast('A nova senha deve ter no mínimo 6 caracteres.', 'warning');
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    if (id) {
+      // Editar
+      const payload = { nome, login, role, ativo };
+      if (senha) payload.novaSenha = senha;
+      await apiFetch(`/usuarios/${id}`, { method: 'PUT', body: payload });
+      showToast('Usuário atualizado com sucesso!', 'success');
+    } else {
+      // Criar
+      await apiFetch('/usuarios', {
+        method: 'POST',
+        body: { nome, login, senha, role, ativo }
+      });
+      showToast('Usuário criado com sucesso!', 'success');
+    }
+
+    closeModal('modalUsuarioForm');
+    loadUsuarios();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar Usuário';
+  }
+}
+
+async function excluirUsuario(id, nome) {
+  if (!confirm(`Deseja realmente EXCLUIR o usuário "${nome}"? Esta ação não pode ser desfeita.`)) {
+    return;
+  }
+
+  try {
+    await apiFetch(`/usuarios/${id}`, { method: 'DELETE' });
+    showToast(`Usuário "${nome}" excluído.`, 'success');
+    loadUsuarios();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ===================================
+// EDIÇÃO E EXCLUSÃO DE ITENS (GESTOR / ADMIN)
+// ===================================
+async function abrirEdicaoItemModal() {
+  if (!currentItemForModal) return;
+  const item = currentItemForModal;
+
+  document.getElementById('editItemId').value = item.id;
+  document.getElementById('editItemNome').value = item.nome || '';
+  document.getElementById('editItemStatus').value = item.status || 'ESTOQUE';
+  document.getElementById('editItemQtd').value = item.quantidade || 1;
+  document.getElementById('editItemUnidade').value = item.unidadeMedida || 'UN';
+  document.getElementById('editItemItensPorCaixa').value = item.itensPorCaixa || '';
+  document.getElementById('editItemMotivoAvaria').value = item.motivoAvaria || '';
+  document.getElementById('editItemValorNf').value = item.valorNf !== null && item.valorNf !== undefined ? item.valorNf : '';
+  document.getElementById('editItemValorInternet').value = item.valorInternet !== null && item.valorInternet !== undefined ? item.valorInternet : '';
+  document.getElementById('editItemSugestao').value = item.sugestao !== null && item.sugestao !== undefined ? item.sugestao : '';
+  document.getElementById('editItemDescricao').value = item.descricao || '';
+
+  // Carregar e popular localizações
+  const selectLoc = document.getElementById('editItemLocalizacao');
+  if (selectLoc) {
+    if (!allLocalizacoes.length) {
+      allLocalizacoes = await apiFetch('/localizacoes').catch(() => []);
+    }
+    selectLoc.innerHTML = '<option value="">Sem localização</option>' + allLocalizacoes.map(l =>
+      `<option value="${l.id}" ${item.localizacaoId === l.id ? 'selected' : ''}>${l.codigo} — ${l.setor?.nome || ''}</option>`
+    ).join('');
+  }
+
+  document.getElementById('modalEditarItem').style.display = 'flex';
+}
+
+async function salvarEdicaoItem() {
+  const id = document.getElementById('editItemId').value;
+  const nome = document.getElementById('editItemNome').value.trim();
+  const status = document.getElementById('editItemStatus').value;
+  const quantidade = parseInt(document.getElementById('editItemQtd').value) || 1;
+  const unidadeMedida = document.getElementById('editItemUnidade').value;
+  const itensPorCaixaVal = document.getElementById('editItemItensPorCaixa').value;
+  const itensPorCaixa = itensPorCaixaVal ? parseInt(itensPorCaixaVal) : null;
+  const localizacaoId = document.getElementById('editItemLocalizacao').value || null;
+  const motivoAvaria = document.getElementById('editItemMotivoAvaria').value.trim() || null;
+  const valorNfVal = document.getElementById('editItemValorNf').value;
+  const valorNf = valorNfVal ? parseFloat(valorNfVal) : null;
+  const valorInternetVal = document.getElementById('editItemValorInternet').value;
+  const valorInternet = valorInternetVal ? parseFloat(valorInternetVal) : null;
+  const sugestaoVal = document.getElementById('editItemSugestao').value;
+  const sugestao = sugestaoVal ? parseFloat(sugestaoVal) : null;
+  const descricao = document.getElementById('editItemDescricao').value.trim() || null;
+  const btn = document.getElementById('btnSalvarEdicaoItem');
+
+  if (!nome) {
+    showToast('O nome do item é obrigatório.', 'warning');
+    return;
+  }
+
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    const updated = await apiFetch(`/items/${id}`, {
+      method: 'PUT',
+      body: {
+        nome,
+        status,
+        quantidade,
+        unidadeMedida,
+        itensPorCaixa,
+        localizacaoId,
+        motivoAvaria,
+        valorNf,
+        valorInternet,
+        sugestao,
+        descricao
+      }
+    });
+
+    showToast('Item atualizado com sucesso!', 'success');
+    closeModal('modalEditarItem');
+
+    // Atualiza modal de detalhes e estoque
+    currentItemForModal = updated;
+    await showItemDetails(id);
+    if (currentPage === 'estoque') loadEstoque();
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar Alterações';
+  }
+}
+
+async function confirmarExclusaoItemModal() {
+  if (!currentItemForModal) return;
+  const item = currentItemForModal;
+
+  if (!confirm(`Tem certeza que deseja EXCLUIR o item "${item.nome}" (${item.codigo}) do estoque?\n\nEsta ação excluirá o item e seu histórico de movimentações permanentemente.`)) {
+    return;
+  }
+
+  try {
+    await apiFetch(`/items/${item.id}`, { method: 'DELETE' });
+    showToast(`Item "${item.nome}" excluído com sucesso.`, 'success');
+    closeModal('modalDetalhes');
+    currentItemForModal = null;
+
+    if (currentPage === 'estoque') loadEstoque();
+    else if (currentPage === 'dashboard') loadDashboard();
+    else if (currentPage === 'mapa') loadMapa();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
 // =====================
 // INICIALIZAÇÃO
 // =====================
 (async function init() {
   await checkConnection();
   setInterval(checkConnection, 30000);
+
+  // Verificar autenticação do usuário
+  const autenticado = await initAuth();
+  if (!autenticado) {
+    mostrarTelaLogin(false);
+    return;
+  }
 
   // Inicializar form de cadastro
   await initCadastrarForm();
@@ -1966,7 +2723,7 @@ async function processScan(codigoLido) {
         if(window.playSuccessBeep) window.playSuccessBeep();
         const itemPrinc = idens[0];
         const qtdTotal = idens.reduce((sum, i) => sum + i.quantidade, 0);
-        abrirModalSaida(itemPrinc.id, itemPrinc.nome, qtdTotal);
+        abrirModalSaida(itemPrinc.id, itemPrinc.nome, qtdTotal, itemPrinc);
       } else {
         showToast('Este item já tem saída registrada ou não está em estoque!', 'warning');
       }

@@ -103,3 +103,16 @@ model Movimentacao {
 
   createdAt DateTime @default(now())
 }
+
+// Usuários do sistema e controle de acesso por níveis (ADMIN, GESTOR, OPERADOR)
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  login     String   @unique
+  senha     String   // Hash bcrypt
+  role      String   @default("OPERADOR") // ADMIN, GESTOR, OPERADOR
+  ativo     Boolean  @default(true)
+  mustChangePassword Boolean @default(true) // Troca obrigatória no primeiro acesso
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

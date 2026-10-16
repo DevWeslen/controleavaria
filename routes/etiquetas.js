@@ -3,9 +3,10 @@ const router = express.Router();
 const prisma = require('../lib/prisma');
 const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
+const { authMiddleware } = require('../lib/auth');
 
 // POST /api/etiquetas/gerar - Gerar etiqueta(s) em PDF
-router.post('/gerar', async (req, res) => {
+router.post('/gerar', authMiddleware, async (req, res) => {
   try {
     const { itemIds, larguraMM = 90, alturaMM = 100 } = req.body; // Etiqueta 52: 9cm x 10cm
 
