@@ -528,7 +528,68 @@
       <section class="page" id="page-lotes">
         <div class="page-header">
           <h1>Lotes de Leilão</h1>
-          <p class="page-subtitle">Gerenciamento de lotes fechados e transferências</p>
+          <p class="page-subtitle">Gerenciamento de lotes fechados, avaliações e transferências</p>
+        </div>
+
+        <!-- Métricas e Valores Consolidados dos Lotes -->
+        <div class="stats-grid" id="lotesStatsGrid" style="margin-bottom: 20px;">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Total de Lotes</span>
+              <span class="stat-value" id="statLotesTotal">0</span>
+              <div class="stat-sub"><span id="statLotesAbertos">0</span> abertos • <span id="statLotesFechados">0</span> fechados</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(52, 211, 153, 0.15); color: #34D399;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Valor Representado (Sugestão/Leilão)</span>
+              <span class="stat-value" id="statLotesValorSugestao" style="color: #34D399;">R$ 0,00</span>
+              <div class="stat-sub">Soma das avaliações sugeridas dos lotes</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(96, 165, 250, 0.15); color: #60A5FA;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Valor Fiscal (NF) Total</span>
+              <span class="stat-value" id="statLotesValorNf" style="color: #60A5FA;">R$ 0,00</span>
+              <div class="stat-sub">Soma dos valores de NF nos lotes</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #C084FC;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              </svg>
+            </div>
+            <div class="stat-info">
+              <span class="stat-label">Itens Agrupados</span>
+              <span class="stat-value" id="statLotesTotalItens">0</span>
+              <div class="stat-sub"><span id="statLotesTotalUnidades">0</span> unidades físicas</div>
+            </div>
+          </div>
         </div>
         
         <div class="dashboard-grid" style="grid-template-columns: 1fr; margin-bottom:20px;">
@@ -566,6 +627,7 @@
                <!-- Lotes renderizados aqui -->
             </div>
           </div>
+        </div>
       </section>
 
       <!-- USUÁRIOS PAGE (APENAS ADMIN) -->
@@ -1093,7 +1155,7 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js?v=46"></script>
-  <script src="lotes_sse.js?v=8"></script>
+  <script src="app.js?v=47"></script>
+  <script src="lotes_sse.js?v=9"></script>
 </body>
 </html>

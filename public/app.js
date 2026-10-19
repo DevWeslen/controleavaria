@@ -47,7 +47,12 @@ function navigateTo(page) {
   else if (page === 'mapa') loadMapa();
   else if (page === 'estoque') loadEstoque();
   else if (page === 'movimentacoes') loadMovimentacoes();
-  else if (page === 'lotes') loadLotes();
+  else if (page === 'lotes') {
+    if (currentUser && document.getElementById('loteUsuario') && !document.getElementById('loteUsuario').value) {
+      document.getElementById('loteUsuario').value = currentUser.nome || currentUser.username || currentUser.login || '';
+    }
+    loadLotes();
+  }
   else if (page === 'usuarios') loadUsuarios();
 
   // Fechar sidebar no mobile ou esconder no modo mapa
@@ -2185,10 +2190,14 @@ function aplicarPermissoesUI(user) {
     navUsuarios.style.display = user.role === 'ADMIN' ? 'flex' : 'none';
   }
 
-  // Lotes: controle visual de criação de lotes para Operadores
+  // Lotes: permitir criação de lotes para Operadores, Gestores e Administradores
   const cardNovoLote = document.getElementById('loteNome')?.closest('.card');
   if (cardNovoLote) {
-    cardNovoLote.style.display = (user.role === 'ADMIN' || user.role === 'GESTOR') ? 'block' : 'none';
+    cardNovoLote.style.display = 'block';
+  }
+  const loteUsuarioInput = document.getElementById('loteUsuario');
+  if (loteUsuarioInput && !loteUsuarioInput.value) {
+    loteUsuarioInput.value = user.nome || user.username || user.login || '';
   }
 }
 
