@@ -4,6 +4,7 @@
   "description": "Sistema de Controle de Estoque de Avarias e Sobras",
   "main": "server.js",
   "scripts": {
+    "build": "npx prisma generate",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:up": "docker-compose up -d",
