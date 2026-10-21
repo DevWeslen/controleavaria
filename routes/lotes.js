@@ -69,6 +69,7 @@ router.get('/codigo/:codigo', async (req, res) => {
       }
     });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
+    if (lote.status === 'SAIU') return res.status(400).json({ error: 'Este lote já teve saída registrada' });
     res.json(lote);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar lote', details: error.message });
@@ -109,7 +110,7 @@ router.post('/:id/itens', authMiddleware, requireRole('ADMIN', 'GESTOR', 'OPERAD
 
     const lote = await prisma.lote.findUnique({ where: { id: req.params.id } });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
-    if (lote.status === 'FECHADO') return res.status(400).json({ error: 'Lote já fechado. Não é possível adicionar itens.' });
+    if (lote.status !== 'ABERTO') return res.status(400).json({ error: 'Lote já fechado. Não é possível adicionar itens.' });
 
     // Buscar item por id ou codigo
     let item;
@@ -140,7 +141,7 @@ router.delete('/:id/itens/:itemId', authMiddleware, requireRole('ADMIN', 'GESTOR
   try {
     const lote = await prisma.lote.findUnique({ where: { id: req.params.id } });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
-    if (lote.status === 'FECHADO') return res.status(400).json({ error: 'Lote fechado. Não é possível remover itens.' });
+    if (lote.status !== 'ABERTO') return res.status(400).json({ error: 'Lote fechado. Não é possível remover itens.' });
 
     await prisma.item.update({
       where: { id: req.params.itemId },
@@ -162,7 +163,7 @@ router.post('/:id/fechar', authMiddleware, requireRole('ADMIN', 'GESTOR', 'OPERA
       include: { itens: true }
     });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
-    if (lote.status === 'FECHADO') return res.status(400).json({ error: 'Lote já está fechado' });
+    if (lote.status !== 'ABERTO') return res.status(400).json({ error: 'Lote já está fechado' });
     if (lote.itens.length === 0) return res.status(400).json({ error: 'Não é possível fechar um lote vazio' });
 
     // Buscar ou criar setor "Lotes Fechados"
@@ -240,29 +241,36 @@ router.post('/:id/saida', authMiddleware, requireRole('ADMIN', 'GESTOR', 'OPERAD
       include: { itens: { where: { status: 'ESTOQUE' } } }
     });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
+    if (lote.status === 'SAIU') return res.status(400).json({ error: 'Este lote já teve saída registrada' });
     if (lote.itens.length === 0) return res.status(400).json({ error: 'Nenhum item em estoque neste lote' });
 
     const responsavel = req.user?.nome || usuario || 'Operador';
 
-    // Dar saída em todos os itens
-    for (const item of lote.itens) {
-      await prisma.item.update({
-        where: { id: item.id },
-        data: { status: 'SAIU' }
+    // Dar saída em todos os itens e marcar o lote como SAIU (atômico)
+    await prisma.$transaction(async (tx) => {
+      for (const item of lote.itens) {
+        await tx.item.update({
+          where: { id: item.id },
+          data: { status: 'SAIU' }
+        });
+        await tx.movimentacao.create({
+          data: {
+            id: uuidv4(),
+            itemId: item.id,
+            tipo: 'SAIDA',
+            motivo: motivo || 'LOTE_SAIDA',
+            destino: destino || `Lote ${lote.codigo}`,
+            quantidade: item.quantidade,
+            usuario: responsavel,
+            observacao: observacao || `Saída em lote: ${lote.nome}`
+          }
+        });
+      }
+      await tx.lote.update({
+        where: { id: lote.id },
+        data: { status: 'SAIU', fechadoAt: lote.fechadoAt || new Date() }
       });
-      await prisma.movimentacao.create({
-        data: {
-          id: uuidv4(),
-          itemId: item.id,
-          tipo: 'SAIDA',
-          motivo: motivo || 'LOTE_SAIDA',
-          destino: destino || `Lote ${lote.codigo}`,
-          quantidade: item.quantidade,
-          usuario: responsavel,
-          observacao: observacao || `Saída em lote: ${lote.nome}`
-        }
-      });
-    }
+    }, { timeout: 60000 });
 
     res.json({ message: `${lote.itens.length} itens registrados com saída`, lote });
   } catch (error) {
@@ -278,7 +286,7 @@ router.delete('/:id', authMiddleware, requireRole('ADMIN', 'GESTOR', 'OPERADOR')
       include: { itens: true }
     });
     if (!lote) return res.status(404).json({ error: 'Lote não encontrado' });
-    if (lote.status === 'FECHADO') return res.status(400).json({ error: 'Lote fechado não pode ser excluído' });
+    if (lote.status !== 'ABERTO') return res.status(400).json({ error: 'Lote fechado não pode ser excluído' });
 
     // Remove itens do lote antes
     await prisma.item.updateMany({

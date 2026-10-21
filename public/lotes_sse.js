@@ -231,6 +231,44 @@ function calcularTotaisLote(lote) {
   return { totalNf, totalInternet, totalSugestao, totalQtd };
 }
 
+// Status efetivo: lote FECHADO cujos itens já saíram todos conta como SAIU (cobre lotes antigos)
+function statusEfetivoLote(lote) {
+  if (lote.status === 'SAIU') return 'SAIU';
+  const itens = lote.itens || [];
+  if (lote.status === 'FECHADO' && itens.length > 0 && itens.every(i => i.status === 'SAIU')) return 'SAIU';
+  return lote.status;
+}
+
+const LOTE_STATUS_UI = {
+  ABERTO: { label: 'ABERTO', icon: '🟢', bg: 'rgba(52, 211, 153, 0.15)', fg: '#34D399', bd: 'rgba(52, 211, 153, 0.3)', accent: '#34D399' },
+  FECHADO: { label: 'FECHADO • AGUARDANDO SAÍDA', icon: '🟠', bg: 'rgba(245, 158, 11, 0.15)', fg: '#FBBF24', bd: 'rgba(245, 158, 11, 0.35)', accent: '#F59E0B' },
+  SAIU: { label: 'SAIU', icon: '📤', bg: 'rgba(96, 165, 250, 0.15)', fg: '#60A5FA', bd: 'rgba(96, 165, 250, 0.35)', accent: '#60A5FA' }
+};
+
+let loteFiltroStatus = 'TODOS';
+
+function setFiltroLotes(f) {
+  loteFiltroStatus = f;
+  loadLotes();
+}
+
+function darSaidaLote(loteId, nome, qtd) {
+  document.getElementById('modalLoteNome').textContent = nome;
+  document.getElementById('modalLoteQtd').textContent = qtd;
+  document.getElementById('modalLoteSaida').style.display = 'flex';
+  document.getElementById('btnConfirmarLoteSaida').onclick = async () => {
+    const destino = document.getElementById('modalLoteDestino').value || 'Leilão/Transferência';
+    try {
+      await apiFetch(`/lotes/${loteId}/saida`, { method: 'POST', body: { motivo: 'LOTE_SAIDA', destino } });
+      showToast('Saída do lote registrada com sucesso!', 'success');
+      closeModal('modalLoteSaida');
+      loadLotes();
+    } catch (e) {
+      showToast('Erro ao dar saída no lote: ' + e.message, 'error');
+    }
+  };
+}
+
 async function loadLotes() {
   const container = document.getElementById('lotesContainer');
   if(!container) return;
@@ -266,10 +304,13 @@ async function loadLotes() {
     let grandTotalUnidades = 0;
     let abertosCount = 0;
     let fechadosCount = 0;
+    let saiuCount = 0;
 
-    const lotesComTotais = lotes.map(lote => {
+    const lotesComTotais = lotes.map(l => {
+      const lote = { ...l, status: statusEfetivoLote(l) };
       const totais = calcularTotaisLote(lote);
       if (lote.status === 'ABERTO') abertosCount++;
+      else if (lote.status === 'SAIU') saiuCount++;
       else fechadosCount++;
 
       grandTotalSugestao += totais.totalSugestao;
@@ -279,6 +320,23 @@ async function loadLotes() {
 
       return { lote, totais };
     });
+
+    // Barra de filtros visual
+    const filtroBar = document.getElementById('lotesFiltroBar');
+    if (filtroBar) {
+      const chips = [
+        ['TODOS', 'Todos', lotes.length, '#9ca3af'],
+        ['ABERTO', '🟢 Abertos', abertosCount, '#34D399'],
+        ['FECHADO', '🟠 Aguardando saída', fechadosCount, '#FBBF24'],
+        ['SAIU', '📤 Já saíram', saiuCount, '#60A5FA']
+      ];
+      filtroBar.innerHTML = chips.map(([k, label, n, cor]) => `
+        <button onclick="setFiltroLotes('${k}')" style="cursor:pointer; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600; border:1px solid ${cor}; background:${loteFiltroStatus === k ? cor : 'transparent'}; color:${loteFiltroStatus === k ? '#111' : cor};">${label} (${n})</button>
+      `).join('');
+    }
+    const elSaiu = document.getElementById('statLotesSairam');
+    if (elSaiu) elSaiu.textContent = saiuCount;
+    const lotesVisiveis = lotesComTotais.filter(({ lote }) => loteFiltroStatus === 'TODOS' || lote.status === loteFiltroStatus);
 
     // Atualizar métricas consolidadas no topo da página de lotes
     const elTotal = document.getElementById('statLotesTotal');
@@ -297,15 +355,15 @@ async function loadLotes() {
     if (elTotalUnidades) elTotalUnidades.textContent = grandTotalUnidades;
 
     // Renderizar cada lote existente
-    container.innerHTML = lotesComTotais.map(({ lote, totais }) => `
-      <div class="lote-card" style="background:#1e1e24; border:1px solid #2d2d3a; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+    container.innerHTML = lotesVisiveis.length === 0 ? '<p style="color:#aaa; text-align:center; padding:30px 0;">Nenhum lote neste filtro.</p>' : lotesVisiveis.map(({ lote, totais }) => { const ui = LOTE_STATUS_UI[lote.status] || LOTE_STATUS_UI.FECHADO; return `
+      <div class="lote-card" style="background:#1e1e24; border:1px solid #2d2d3a; border-left:5px solid ${ui.accent}; border-radius:10px; padding:18px; display:flex; flex-direction:column; gap:12px; box-shadow: 0 4px 14px rgba(0,0,0,0.25); ${lote.status === 'SAIU' ? 'opacity:0.8;' : ''}">
         
         <!-- CABEÇALHO DO LOTE -->
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
           <div>
             <div style="display:flex; align-items:center; gap:10px;">
               <h4 style="margin:0; font-size:17px; font-weight:700; color:#fff;">${lote.nome}</h4>
-              <span style="padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; letter-spacing:0.5px; background:${lote.status === 'ABERTO' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color:${lote.status === 'ABERTO' ? '#34D399' : '#FCA5A5'}; border: 1px solid ${lote.status === 'ABERTO' ? 'rgba(52, 211, 153, 0.3)' : 'rgba(239, 68, 68, 0.3)'};">${lote.status}</span>
+              <span style="padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; letter-spacing:0.5px; background:${ui.bg}; color:${ui.fg}; border: 1px solid ${ui.bd};">${ui.icon} ${ui.label}</span>
             </div>
             <p style="margin:4px 0 0 0; font-size:12px; color:#9ca3af;">
               <code style="color:#F59E0B; font-weight:600;">${lote.codigo}</code> &bull; Criado por: <strong style="color:#e5e7eb;">${lote.usuario || 'N/A'}</strong>
@@ -357,7 +415,8 @@ async function loadLotes() {
               ${lote.itens.map(i => {
                 const itemSug = Number(i.sugestao) || (i.valorInternet ? i.valorInternet * 0.4 : (i.valorNf ? i.valorNf * 0.4 : 0));
                 return `
-                <span style="background:#262630; border:1px solid #3b3b4a; padding:6px 10px; border-radius:6px; font-size:12px; color:#e5e7eb; display:inline-flex; align-items:center; gap:8px;">
+                <span style="background:#262630; border:1px solid ${i.status === 'SAIU' ? 'rgba(96,165,250,0.4)' : '#3b3b4a'}; padding:6px 10px; border-radius:6px; font-size:12px; color:#e5e7eb; display:inline-flex; align-items:center; gap:8px; ${i.status === 'SAIU' ? 'opacity:0.65;' : ''}">
+                  ${i.status === 'SAIU' ? '<span style="font-size:10px; font-weight:700; color:#60A5FA;">📤 SAIU</span>' : ''}
                   <code style="color:#60A5FA; font-weight:600;">${i.codigo}</code>
                   <span style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${i.nome}">${i.nome}</span>
                   <span style="color:#9ca3af; font-size:11px;">(${i.quantidade || 1} un)</span>
@@ -381,15 +440,21 @@ async function loadLotes() {
                 <button class="btn-primary-small" style="padding:6px 14px;" onclick="promptAdicionarItemLote('${lote.id}')">➕ Adicionar Item</button>
                 ${lote.itens.length > 0 ? `<button class="btn-danger-small" style="padding:6px 14px; background:#D97706; border-color:#F59E0B; color:#fff;" onclick="fecharLote('${lote.id}')">🔒 Fechar Lote</button>` : ''}
              </div>
+          ` : lote.status === 'SAIU' ? `
+             <span style="font-size:12px; color:#60A5FA; font-weight:600;">📤 Saiu do estoque${lote.updatedAt ? ' em ' + new Date(lote.updatedAt).toLocaleString('pt-BR') : ''}</span>
+             <div style="display:flex; gap:10px;">
+               <button class="btn-primary-small" style="padding:6px 14px;" onclick="imprimirEtiquetaLote('${lote.codigo}', '${lote.nome}')">🖨️ Etiqueta de Lote</button>
+             </div>
           ` : `
              <span style="font-size:12px; color:#9ca3af;">Fechado em: ${lote.fechadoAt ? new Date(lote.fechadoAt).toLocaleString('pt-BR') : '—'}</span>
              <div style="display:flex; gap:10px;">
                <button class="btn-primary-small" style="padding:6px 14px;" onclick="imprimirEtiquetaLote('${lote.codigo}', '${lote.nome}')">🖨️ Etiqueta de Lote</button>
+               <button class="btn-danger-small" style="padding:6px 14px; background:#2563EB; border-color:#3B82F6; color:#fff;" onclick="darSaidaLote('${lote.id}', decodeURIComponent('${encodeURIComponent(lote.nome)}'), ${lote.itens.length})">📤 Dar Saída</button>
              </div>
           `}
         </div>
       </div>
-    `).join('');
+    `; }).join('');
 
   } catch(e) {
     container.innerHTML = '<p style="color:var(--danger); padding:20px; text-align:center;">Erro ao carregar lotes: ' + e.message + '</p>';
